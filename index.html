@@ -747,7 +747,7 @@
                         >
                             Exportar para XLSX
                         </a>
-                        {/* New Menu Item: Importar de XLSX */}
+                        {/* Menu Item: Importar de XLSX */}
                          <a
                             href="#"
                             className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
@@ -757,6 +757,17 @@
                             }}
                         >
                             Importar de XLSX
+                        </a>
+                        {/* New Menu Item: Gestão de Materiais Didáticos */}
+                         <a
+                            href="https://fbiluoficial.github.io/uninta-disciplina/" // Set the href
+                            target="_blank" // Open in a new tab
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                            onClick={() => {
+                                setIsMenuOpen(false); // Close menu on click
+                            }}
+                        >
+                            Gestão de Materiais Didáticos
                         </a>
                       </div>
                     )}
