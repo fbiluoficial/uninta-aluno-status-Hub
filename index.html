@@ -1,0 +1,773 @@
+import { useState, useEffect, useRef } from 'react'; // Import useRef
+
+export default function App() {
+  // State management
+  const [students, setStudents] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // State for menu dropdown visibility
+
+  // Ref for the menu container to detect clicks outside
+  const menuRef = useRef(null);
+
+  // Form state for adding new students
+  const [formData, setFormData] = useState({
+    name: '',
+    course: '',
+    orientation: '',
+    device: '',
+    difficulty: '', // Will be updated with new options
+    ativo: 'ativo-true', // Default new students to active
+    boleto: '',
+    forumDiscursiva: '' // Will be updated with new options
+  });
+
+  // Load students from localStorage on initial render
+  useEffect(() => {
+    const savedStudents = JSON.parse(localStorage.getItem('students'));
+    if (savedStudents) {
+      // Ensure loaded students have default 'ativo' status if missing
+      const updatedStudents = savedStudents.map(student => {
+          if (!student.status.some(s => s.startsWith('ativo-'))) {
+              return { ...student, status: [...student.status, 'ativo-true'] };
+          }
+          return student;
+      });
+      setStudents(updatedStudents);
+    } else {
+      // Initial sample student with updated status types
+      const initialStudent = {
+        id: Date.now(),
+        name: "Carlos Santos",
+        course: "Administração",
+        // Updated sample status values - using new 'diff-sabe' and 'diff-dicas'
+        status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe"]
+      };
+      setStudents([initialStudent]);
+    }
+  }, []);
+
+  // Save students to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('students', JSON.stringify(students));
+  }, [students]);
+
+    // Effect to close menu on outside click
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        };
+
+        if (isMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMenuOpen]);
+
+
+  // Filter students based on search and filter criteria
+  const filteredStudents = students.filter(student => {
+    const matchesSearch =
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.course.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesFilter = filterStatus ?
+      student.status.includes(filterStatus) : true;
+
+    return matchesSearch && matchesFilter;
+  });
+
+  // Get label for status tag - UPDATED
+  const getTagLabel = (tag) => {
+    const tagMap = {
+      'orientation-video': 'Vídeo Tutorial',
+      'orientation-presencial': 'Presencial',
+      'device-app': 'App',
+      'device-site': 'Site',
+      'diff-critico': 'AVA - Crítico',
+      'diff-sabe': 'AVA - Sabe',
+      'diff-dicas': 'AVA - Dicas',
+      'ativo-true': 'Ativo',
+      'ativo-false': 'Inativo',
+      'boleto-sabe': 'Boleto (Sabe)',
+      'boleto-nao-sabe': 'Boleto (Não Sabe)',
+      'forum-discursiva-sabe': 'Fórum/Discursiva (Sabe Finalizar)', // Updated label
+      'forum-discursiva-nao-sabe': 'Fórum/Discursiva (Não Sabe Finalizar)' // Updated label
+    };
+    return tagMap[tag] || tag;
+  };
+
+  // Get tag color classes or special rendering for 'ativo' - UPDATED (added colors for new types)
+  const getTagColor = (tag) => {
+    const colorMap = {
+      'orientation-video': 'bg-blue-500',
+      'orientation-presencial': 'bg-indigo-500',
+      'device-app': 'bg-teal-500',
+      'device-site': 'bg-cyan-500',
+      'diff-critico': 'bg-red-700 text-white',
+      'diff-sabe': 'bg-green-500',
+      'diff-dicas': 'bg-yellow-500 text-gray-900',
+      'boleto-sabe': 'bg-green-600',
+      'boleto-nao-sabe': 'bg-red-600',
+      'forum-discursiva-sabe': 'bg-purple-600',
+      'forum-discursiva-nao-sabe': 'bg-pink-600'
+    };
+    // Special handling for 'ativo' status to render a circle
+    if (tag.startsWith('ativo-')) {
+        return ''; // No background color class needed, will render a circle
+    }
+    return colorMap[tag] || 'bg-gray-500';
+  };
+
+
+  // Delete a student
+  const deleteStudent = (id) => {
+    if (window.confirm('Tem certeza que deseja excluir este aluno?')) {
+      setStudents(students.filter(student => student.id !== id));
+    }
+  };
+
+  // Add a new student
+  const addStudent = () => {
+    // Basic validation - check if required fields are filled
+    if (!formData.name || !formData.course ||
+        !formData.orientation || !formData.device || !formData.difficulty ||
+        !formData.ativo || !formData.boleto || !formData.forumDiscursiva) {
+      alert('Por favor, preencha todos os campos');
+      return;
+    }
+
+    const newStudent = {
+      id: Date.now(),
+      name: formData.name,
+      course: formData.course,
+      // Combine all selected statuses into the status array
+      status: [formData.orientation, formData.device, formData.difficulty, formData.ativo, formData.boleto, formData.forumDiscursiva]
+    };
+
+    setStudents([...students, newStudent]);
+    setIsAdding(false);
+    resetForm();
+  };
+
+  // Reset form fields - UPDATED (reset to default new options)
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      course: '',
+      orientation: '', // Reset to empty to force selection
+      device: '',       // Reset to empty to force selection
+      difficulty: '',   // Reset to empty to force selection
+      ativo: 'ativo-true', // Reset to active
+      boleto: '',
+      forumDiscursiva: '' // Reset to empty to force selection
+    });
+  };
+
+  // Student card component with inline editing
+  const StudentCard = ({ student, onUpdate, onDelete }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    // State to hold the student data being edited in the main form
+    const [editedStudent, setEditedStudent] = useState({ ...student });
+    // State to track which status tag is being edited inline { prefix: string, currentValue: string }
+    const [editingStatus, setEditingStatus] = useState(null);
+
+    // Helper to extract specific status value by prefix
+    const extractStatusValue = (prefix) => {
+      return student.status.find(tag => tag.startsWith(prefix)) || '';
+    };
+
+    // Initialize edited student state when student prop changes or editing starts
+    useEffect(() => {
+      if (isEditing) { // Only update editedStudent when entering edit mode
+        setEditedStudent({
+          ...student,
+          orientation: extractStatusValue('orientation-'),
+          device: extractStatusValue('device-'),
+          difficulty: extractStatusValue('diff-'),
+          ativo: extractStatusValue('ativo-'),
+          boleto: extractStatusValue('boleto-'),
+          forumDiscursiva: extractStatusValue('forum-discursiva-')
+        });
+      } else { // When exiting edit mode, reset editedStudent to match the current student prop
+           setEditedStudent({ ...student });
+      }
+    }, [student, isEditing]); // Depend on student and isEditing state
+
+
+    // Handle save of edited student (for the main edit form)
+    const handleSave = () => {
+      // Filter out old status values by their prefixes
+      const newStatus = student.status.filter(
+        tag => !['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-'].some(prefix => tag.startsWith(prefix))
+      );
+
+      // Add updated status values from the edited form state, if they are not empty
+      if (editedStudent.orientation) newStatus.push(editedStudent.orientation);
+      if (editedStudent.device) newStatus.push(editedStudent.device);
+      if (editedStudent.difficulty) newStatus.push(editedStudent.difficulty);
+      if (editedStudent.ativo) newStatus.push(editedStudent.ativo);
+      if (editedStudent.boleto) newStatus.push(editedStudent.boleto);
+      if (editedStudent.forumDiscursiva) newStatus.push(editedStudent.forumDiscursiva);
+
+
+      // Create the updated student object
+      const updatedStudent = {
+        ...editedStudent,
+        status: newStatus
+      };
+
+      // Call the parent update function
+      onUpdate(updatedStudent);
+      // Exit edit mode
+      setIsEditing(false);
+    };
+
+    // Handle inline status change
+    const handleInlineStatusChange = (prefix, newValue) => {
+        // Find the old tag with the given prefix
+        const oldTag = student.status.find(tag => tag.startsWith(prefix));
+        // Filter out the old tag and add the new one
+        const newStatusArray = student.status.filter(tag => !tag.startsWith(prefix));
+        if (newValue) { // Only add if a value is selected
+            newStatusArray.push(newValue);
+        }
+
+        const updatedStudent = {
+            ...student,
+            status: newStatusArray
+        };
+        onUpdate(updatedStudent); // Update the parent state
+        setEditingStatus(null); // Close the inline editor
+    };
+
+    // Render status tag, with special handling for 'ativo' and inline editing - UPDATED (options for inline select and order)
+    const renderStatusTag = (tag, index) => {
+        const prefix = tag.split('-')[0] + '-'; // Get the prefix (e.g., 'orientation-', 'boleto-')
+
+        // Handle 'ativo' status toggle
+        if (tag.startsWith('ativo-')) {
+            const isActive = tag === 'ativo-true';
+            const circleColor = isActive ? 'bg-green-500' : 'bg-red-500';
+            const label = isActive ? 'Ativo' : 'Inativo';
+
+            const toggleActiveStatus = () => {
+                const newStatusValue = isActive ? 'ativo-false' : 'ativo-true';
+                const newStatusArray = student.status.filter(s => !s.startsWith('ativo-'));
+                newStatusArray.push(newStatusValue);
+                const updatedStudent = { ...student, status: newStatusArray };
+                onUpdate(updatedStudent);
+            };
+
+            return (
+                <span
+                    key={index}
+                    className="status-tag flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-100 cursor-pointer hover:bg-gray-600 transition-colors"
+                    onClick={toggleActiveStatus}
+                    title={`Clique para ${isActive ? 'desativar' : 'ativar'}`}
+                >
+                    <span className={`w-3 h-3 rounded-full ${circleColor}`}></span>
+                    {label}
+                </span>
+            );
+        }
+
+        // Handle inline editing for other statuses
+        if (editingStatus && editingStatus.prefix === prefix) {
+            // Render a select dropdown for editing
+            let options = [];
+            switch (prefix) {
+                case 'orientation-':
+                    options = [
+                        { value: 'orientation-video', label: 'Vídeo Tutorial' },
+                        { value: 'orientation-presencial', label: 'Presencial' }
+                    ];
+                    break;
+                case 'device-':
+                    options = [
+                        { value: 'device-app', label: 'App' },
+                        { value: 'device-site', label: 'Site' }
+                    ];
+                    break;
+                case 'diff-': // UPDATED OPTIONS
+                    options = [
+                        { value: 'diff-critico', label: 'AVA - Crítico' },
+                        { value: 'diff-sabe', label: 'AVA - Sabe' },
+                        { value: 'diff-dicas', label: 'AVA - Dicas' }
+                    ];
+                    break;
+                case 'boleto-':
+                    options = [
+                        { value: 'boleto-sabe', label: 'Boleto (Sabe)' },
+                        { value: 'boleto-nao-sabe', label: 'Boleto (Não Sabe)' }
+                    ];
+                    break;
+                case 'forum-discursiva-': // UPDATED OPTIONS
+                    options = [
+                        { value: 'forum-discursiva-sabe', label: 'Fórum/Discursiva (Sabe Finalizar)' }, // Updated label
+                        { value: 'forum-discursiva-nao-sabe', label: 'Fórum/Discursiva (Não Sabe Finalizar)' } // Updated label
+                    ];
+                    break;
+                default:
+                    options = [];
+            }
+
+            return (
+                 <select
+                    key={index}
+                    value={editingStatus.currentValue}
+                    onChange={(e) => handleInlineStatusChange(prefix, e.target.value)}
+                    onBlur={() => setEditingStatus(null)} // Close on blur
+                    className="px-2 py-1 text-sm bg-gray-700 rounded-lg border border-gray-600 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    autoFocus // Auto focus the select when it appears
+                 >
+                    <option value="">Selecione...</option> {/* Option to clear status */}
+                    {options.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                 </select>
+            );
+        } else {
+            // Render static tag for other statuses, make them clickable to start inline edit
+            return (
+                <span
+                    key={index}
+                    className={`status-tag px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagColor(tag)}`}
+                    onClick={() => setEditingStatus({ prefix: prefix, currentValue: tag })} // Set editing state on click
+                >
+                    {getTagLabel(tag)}
+                </span>
+            );
+        }
+    };
+
+
+    return (
+      // Adjusted padding and margin for compactness
+      <div className="student-card bg-gray-800/70 backdrop-blur-lg rounded-xl p-4 mb-4 relative">
+        {isEditing ? (
+          // Adjusted spacing in edit form
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Nome</label>
+              <input
+                type="text"
+                value={editedStudent.name}
+                onChange={(e) => setEditedStudent({...editedStudent, name: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Curso</label>
+              <input
+                type="text"
+                value={editedStudent.course}
+                onChange={(e) => setEditedStudent({...editedStudent, course: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+              />
+            </div>
+            {/* Adjusted gap in the grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Orientação</label>
+                <select
+                  value={editedStudent.orientation}
+                  onChange={(e) => setEditedStudent({...editedStudent, orientation: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="orientation-video">Vídeo Tutorial</option>
+                  <option value="orientation-presencial">Presencial</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Dispositivo</label>
+                <select
+                  value={editedStudent.device}
+                  onChange={(e) => setEditedStudent({...editedStudent, device: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="device-app">App</option>
+                  <option value="device-site">Site</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Dificuldade</label>
+                <select
+                  value={editedStudent.difficulty}
+                  onChange={(e) => setEditedStudent({...editedStudent, difficulty: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="diff-critico">AVA - Crítico</option>
+                  <option value="diff-sabe">AVA - Sabe</option>
+                  <option value="diff-dicas">AVA - Dicas</option>
+                </select>
+              </div>
+               {/* New Status Fields */}
+               <div>
+                <label className="block text-sm font-medium mb-1">Status Ativo</label>
+                <select
+                  value={editedStudent.ativo}
+                  onChange={(e) => setEditedStudent({...editedStudent, ativo: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="ativo-true">Ativo</option>
+                  <option value="ativo-false">Inativo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Emitir Boleto</label>
+                <select
+                  value={editedStudent.boleto}
+                  onChange={(e) => setEditedStudent({...editedStudent, boleto: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="boleto-sabe">Sabe</option>
+                  <option value="boleto-nao-sabe">Não Sabe</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Fórum/Discursiva</label>
+                <select
+                  value={editedStudent.forumDiscursiva}
+                  onChange={(e) => setEditedStudent({...editedStudent, forumDiscursiva: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
+                  <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white"
+              >
+                Salvar
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors text-white"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="student-info">
+              <h3 className="student-name text-xl font-bold text-blue-400 mb-1">
+                {student.name}
+              </h3>
+              <p className="student-course text-gray-400 text-sm">
+                {student.course}
+              </p>
+            </div>
+            <div className="status-group flex flex-wrap gap-1 mt-2">
+              {/* Render Ativo status first */}
+              {student.status.filter(tag => tag.startsWith('ativo-')).map((tag, index) => (
+                  renderStatusTag(tag, index)
+              ))}
+              {/* Render "Não Sabe" and "Crítico" statuses next */}
+               {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag, index) => (
+                  renderStatusTag(tag, index + 100) // Use offset key to avoid conflicts
+              ))}
+              {/* Render other statuses */}
+              {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag, index) => (
+                  renderStatusTag(tag, index + 200) // Use offset key
+              ))}
+            </div>
+            <div className="student-actions absolute top-3 right-3 flex gap-2">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="action-btn text-gray-400 hover:text-blue-400 transition-colors"
+                title="Editar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button
+                onClick={() => onDelete(student.id)}
+                className="action-btn text-gray-400 hover:text-red-400 transition-colors"
+                title="Excluir"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-red-900 text-gray-100">
+      {/* Navigation - UPDATED (added settings icon and dropdown menu) */}
+      <nav className="navbar sticky top-0 z-10 flex justify-between items-center p-4 bg-black/50 backdrop-blur-md">
+        <div className="logo text-2xl font-bold text-blue-400">Plataforma AVA</div>
+        {/* Settings menu with icon and dropdown */}
+        <div className="settings-menu-container relative" ref={menuRef}> {/* Add ref and class */}
+            <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="settings-button text-gray-300 hover:text-blue-400 transition-colors focus:outline-none"
+                aria-label="Menu de Configurações"
+            >
+                {/* Settings Icon (Feather Icons) */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-settings">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .3 1.67l-.2.2c-.39.39-.66 1.11-.66 1.67V21h-3.73a1.65 1.65 0 0 0-1.65-1.65h-.79a1.65 1.65 0 0 0-1.65 1.65H3v-3.73a1.65 1.65 0 0 0-.66-1.67l-.2-.2a1.65 1.65 0 0 0 .3-1.67l.2-.2c.39-.39 1.11-.66 1.67-.66H3v-3.73a1.65 1.65 0 0 0 1.65-1.65v-.79a1.65 1.65 0 0 0-1.65-1.65H3V3h3.73a1.65 1.65 0 0 0 1.65 1.65h.79a1.65 1.65 0 0 0 1.65-1.65H21v3.73c.56 0 1.3.27 1.67.66l.2.2a1.65 1.65 0 0 0 0 2.34l-.2.2c-.39.39-1.11.66-1.67.66z"></path>
+                </svg>
+            </button>
+            {/* Dropdown Menu */}
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-20">
+                {/* Menu Item: Configurações */}
+                <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    onClick={() => {
+                        alert('Funcionalidade de Configurações (em desenvolvimento)'); // Placeholder action
+                        setIsMenuOpen(false); // Close menu on click
+                    }}
+                >
+                    Configurações
+                </a>
+                {/* Placeholder for future menu items */}
+                 <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    onClick={() => {
+                        alert('Outra Opção 1 (em desenvolvimento)'); // Placeholder action
+                        setIsMenuOpen(false); // Close menu on click
+                    }}
+                >
+                    Outra Opção 1
+                </a>
+                 <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    onClick={() => {
+                        alert('Outra Opção 2 (em desenvolvimento)'); // Placeholder action
+                        setIsMenuOpen(false); // Close menu on click
+                    }}
+                >
+                    Outra Opção 2
+                </a>
+              </div>
+            )}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Filters - UPDATED (added new filter options) */}
+        <div className="filters flex flex-wrap gap-4 mb-8">
+          <div className="flex-grow min-w-[200px]">
+            <input
+              type="text"
+              placeholder="Buscar aluno..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white placeholder-gray-400"
+            />
+          </div>
+          <div className="min-w-[200px]">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="filter-select w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white"
+            >
+              <option value="">Filtrar por status...</option>
+              <option value="orientation-video">Vídeo Tutorial</option>
+              <option value="orientation-presencial">Presencial</option>
+              <option value="device-app">App</option>
+              <option value="device-site">Site</option>
+              <option value="diff-critico">AVA - Crítico</option>
+              <option value="diff-sabe">AVA - Sabe</option>
+              <option value="diff-dicas">AVA - Dicas</option>
+              <option value="ativo-true">Ativo</option>
+              <option value="ativo-false">Inativo</option>
+              <option value="boleto-sabe">Boleto (Sabe)</option>
+              <option value="boleto-nao-sabe">Boleto (Não Sabe)</option>
+              <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
+              <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Add New Student Form - UPDATED (added new form options) */}
+        {isAdding && (
+          // Adjusted padding and margin for compactness
+          <div className="form-container bg-gray-800/70 backdrop-blur-lg rounded-xl p-5 mb-6 max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold text-blue-400 mb-4">Adicionar Novo Aluno</h1>
+            {/* Adjusted spacing in the form */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nome do Aluno</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Curso</label>
+                <input
+                  type="text"
+                  value={formData.course}
+                  onChange={(e) => setFormData({...formData, course: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                />
+              </div>
+              {/* Adjusted gap in the grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Orientação</label>
+                  <select
+                    value={formData.orientation}
+                    onChange={(e) => setFormData({...formData, orientation: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="orientation-video">Vídeo Tutorial</option>
+                    <option value="orientation-presencial">Presencial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Dispositivo</label>
+                  <select
+                    value={formData.device}
+                    onChange={(e) => setFormData({...formData, device: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="device-app">App</option>
+                    <option value="device-site">Site</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Dificuldade</label>
+                  <select
+                    value={formData.difficulty}
+                    onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="diff-critico">AVA - Crítico</option>
+                    <option value="diff-sabe">AVA - Sabe</option>
+                    <option value="diff-dicas">AVA - Dicas</option>
+                  </select>
+                </div>
+                 {/* New Status Fields in Add Form */}
+                 <div>
+                  <label className="block text-sm font-medium mb-1">Status Ativo</label>
+                  <select
+                    value={formData.ativo}
+                    onChange={(e) => setFormData({...formData, ativo: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="ativo-true">Ativo</option>
+                    <option value="ativo-false">Inativo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Emitir Boleto</label>
+                  <select
+                    value={formData.boleto}
+                    onChange={(e) => setFormData({...formData, boleto: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="boleto-sabe">Sabe</option>
+                    <option value="boleto-nao-sabe">Não Sabe</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fórum/Discursiva</label>
+                  <select
+                    value={formData.forumDiscursiva}
+                    onChange={(e) => setFormData({...formData, forumDiscursiva: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
+                    <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={addStudent}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white"
+                >
+                  Salvar Aluno
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAdding(false);
+                    resetForm();
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Student List */}
+        <div className="students-container">
+          {filteredStudents.length === 0 ? (
+            <p className="text-center py-8 text-gray-400">Nenhum aluno encontrado.</p>
+          ) : (
+            filteredStudents.map(student => (
+              <StudentCard
+                key={student.id}
+                student={student}
+                onUpdate={(updatedStudent) => {
+                  setStudents(students.map(s =>
+                    s.id === updatedStudent.id ? updatedStudent : s
+                  ));
+                }}
+                onDelete={deleteStudent}
+              />
+            ))
+          )}
+        </div>
+      </main>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => setIsAdding(true)}
+        className="fab fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors focus:outline-none"
+        aria-label="Adicionar aluno"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  );
+}
