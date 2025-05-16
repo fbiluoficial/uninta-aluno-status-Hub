@@ -111,26 +111,18 @@
             if (savedStudents) {
               // Ensure loaded students have default statuses and entryDate if missing
               const updatedStudents = savedStudents.map(student => {
-                  if (!student.status) { // Ensure status array exists
-                      student.status = [];
-                  }
+                  // Ensure status array exists and filter out empty strings
+                  student.status = Array.isArray(student.status) ? student.status.filter(tag => tag !== '') : [];
+
+                  // Add default 'ativo' status if missing
                   if (!student.status.some(s => s.startsWith('ativo-'))) {
-                      student.status = [...student.status, 'ativo-true'];
+                      student.status.push('ativo-true');
                   }
-                   if (!student.status.some(s => s.startsWith('level-'))) { // Ensure level status exists
-                      student.status = [...student.status, '']; // Add empty level status
-                  }
-                  if (!student.entryDate) { // Ensure entryDate exists
+
+                   // Ensure entryDate exists
+                  if (!student.entryDate) {
                       student.entryDate = '';
                   }
-                  // Ensure all expected status prefixes are present, adding empty ones if missing
-                   const expectedPrefixes = ['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-', 'level-'];
-                   expectedPrefixes.forEach(prefix => {
-                       if (!student.status.some(s => s.startsWith(prefix))) {
-                           student.status.push(''); // Add empty tag for missing prefix
-                       }
-                   });
-
 
                   return student;
               });
@@ -254,7 +246,7 @@
             if (tag.startsWith('ativo-')) {
                 return ''; // No background color class needed, will render a circle
             }
-            return colorMap[tag] || 'bg-gray-500';
+            return colorMap[tag] || 'bg-gray-500'; // Default gray for unknown/empty tags (should not happen with filtering)
           };
 
 
@@ -278,16 +270,16 @@
               name: formData.name,
               course: formData.course,
               entryDate: formData.entryDate, // Include entryDate
-              // Combine all selected statuses into the status array, allow empty
+              // Combine all selected statuses into the status array, filter out empty
               status: [
-                  formData.orientation || '',
-                  formData.device || '',
-                  formData.difficulty || '',
+                  formData.orientation,
+                  formData.device,
+                  formData.difficulty,
                   formData.ativo || 'ativo-true', // Default to active if empty
-                  formData.boleto || '',
-                  formData.forumDiscursiva || '',
-                  formData.level || '' // Include new level field
-              ].filter(tag => tag !== '') // Filter out empty tags from the status array
+                  formData.boleto,
+                  formData.forumDiscursiva,
+                  formData.level
+              ].filter(tag => tag && tag !== '') // Filter out null, undefined, and empty strings
             };
 
             setStudents([...students, newStudent]);
@@ -379,22 +371,23 @@
                     // Ensure ID is treated as a number (or generate a new one if missing/invalid)
                     const studentId = item['ID'] && !isNaN(item['ID']) ? parseInt(item['ID'], 10) : Date.now() + Math.random();
 
-                    // Reconstruct the status array from the imported columns
-                    const statusArray = [];
-                    if (item['Orientação']) statusArray.push(getTagValue(item['Orientação']));
-                    if (item['Dispositivo']) statusArray.push(getTagValue(item['Dispositivo']));
-                    if (item['Dificuldade AVA']) statusArray.push(getTagValue(item['Dificuldade AVA']));
-                    if (item['Status Ativo']) statusArray.push(getTagValue(item['Status Ativo']));
-                    if (item['Emitir Boleto']) statusArray.push(getTagValue(item['Emitir Boleto']));
-                    if (item['Fórum/Discursiva']) statusArray.push(getTagValue(item['Fórum/Discursiva']));
-                    if (item['Nível do Aluno']) statusArray.push(getTagValue(item['Nível do Aluno'])); // Include new level
+                    // Reconstruct the status array from the imported columns, filtering out empty
+                    const statusArray = [
+                        getTagValue(item['Orientação'] || ''),
+                        getTagValue(item['Dispositivo'] || ''),
+                        getTagValue(item['Dificuldade AVA'] || ''),
+                        getTagValue(item['Status Ativo'] || ''),
+                        getTagValue(item['Emitir Boleto'] || ''),
+                        getTagValue(item['Fórum/Discursiva'] || ''),
+                        getTagValue(item['Nível do Aluno'] || '') // Include new level
+                    ].filter(tag => tag && tag !== ''); // Filter out null, undefined, and empty strings
 
                     return {
                         id: studentId, // Use parsed/generated ID
                         name: item['Nome do Aluno'] || 'Nome Desconhecido',
                         course: item['Curso'] || 'Curso Desconhecido',
                         entryDate: item['Data de Ingresso'] || '', // Include entryDate
-                        status: statusArray.filter(tag => tag !== '') // Filter out empty tags
+                        status: statusArray
                     };
                 });
 
@@ -470,7 +463,7 @@
                 tag => !['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-', 'level-'].some(prefix => tag.startsWith(prefix)) // Include new prefix
               );
 
-              // Add updated status values from the edited form state, if they are not empty
+              // Add updated status values from the edited form state, filter out empty
               if (editedStudent.orientation) newStatus.push(editedStudent.orientation);
               if (editedStudent.device) newStatus.push(editedStudent.device);
               if (editedStudent.difficulty) newStatus.push(editedStudent.difficulty);
@@ -483,7 +476,7 @@
               // Create the updated student object
               const updatedStudent = {
                 ...editedStudent,
-                status: newStatus.filter(tag => tag !== '') // Filter out empty tags
+                status: newStatus.filter(tag => tag && tag !== '') // Filter out null, undefined, and empty strings
               };
 
               // Call the parent update function
@@ -504,7 +497,7 @@
 
                 const updatedStudent = {
                     ...student,
-                    status: newStatusArray.filter(tag => tag !== '') // Filter out empty tags
+                    status: newStatusArray.filter(tag => tag && tag !== '') // Filter out null, undefined, and empty strings
                 };
                 onUpdate(updatedStudent); // Update the parent state
                 setEditingStatus(null); // Close the inline editor
