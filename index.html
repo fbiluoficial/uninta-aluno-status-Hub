@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão_Alunos_Uninta</title>
+    <title>Plataforma AVA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -35,13 +35,39 @@
             justify-content: center;
             width: 30px; /* Adjust size as needed */
             height: 30px; /* Adjust size as needed */
-            background-color: #3b82f6; /* Tailwind blue-500 */
+            /* Background color will be set dynamically by React */
             color: white;
             border-radius: 50%;
             font-size: 0.875rem; /* text-sm */
             font-weight: bold;
             margin-right: 10px; /* Space between circle and title */
             flex-shrink: 0; /* Prevent shrinking */
+            transition: background-color 0.3s ease; /* Smooth transition for color change */
+        }
+        /* Style for the search input container */
+        .search-input-container {
+            position: relative;
+        }
+        .search-input-container .clear-button {
+            position: absolute;
+            right: 8px; /* Adjust as needed */
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+        }
+        .search-input-container .clear-button:hover {
+            color: #fff;
         }
     </style>
 </head>
@@ -69,6 +95,7 @@
           const [formData, setFormData] = useState({
             name: '',
             course: '',
+            entryDate: '', // New field for entry date
             orientation: '',
             device: '',
             difficulty: '', // Will be updated with new options
@@ -81,20 +108,24 @@
           useEffect(() => {
             const savedStudents = JSON.parse(localStorage.getItem('students'));
             if (savedStudents) {
-              // Ensure loaded students have default 'ativo' status if missing
+              // Ensure loaded students have default 'ativo' status and entryDate if missing
               const updatedStudents = savedStudents.map(student => {
                   if (!student.status.some(s => s.startsWith('ativo-'))) {
-                      return { ...student, status: [...student.status, 'ativo-true'] };
+                      student.status = [...student.status, 'ativo-true'];
+                  }
+                  if (!student.entryDate) { // Ensure entryDate exists
+                      student.entryDate = '';
                   }
                   return student;
               });
               setStudents(updatedStudents);
             } else {
-              // Initial sample student with updated status types
+              // Initial sample student with updated status types and entryDate
               const initialStudent = {
                 id: Date.now(),
                 name: "Carlos Santos",
                 course: "Administração",
+                entryDate: "2025.1", // Sample entry date
                 // Updated sample status values - using new 'diff-sabe' and 'diff-dicas'
                 status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe"]
               };
@@ -129,13 +160,18 @@
           const filteredStudents = students.filter(student => {
             const matchesSearch =
               student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              student.course.toLowerCase().includes(searchTerm.toLowerCase());
+              student.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (student.entryDate && student.entryDate.toLowerCase().includes(searchTerm.toLowerCase())); // Include entryDate in search
 
             const matchesFilter = filterStatus ?
               student.status.includes(filterStatus) : true;
 
             return matchesSearch && matchesFilter;
           });
+
+          // Determine the background color class for the student count circle
+          const countCircleColorClass = (searchTerm || filterStatus) ? 'bg-yellow-500 text-gray-900' : 'bg-blue-500';
+
 
           // Get label for status tag - UPDATED
           const getTagLabel = (tag) => {
@@ -157,13 +193,13 @@
             return tagMap[tag] || tag;
           };
 
-           // Get tag value from label (reverse of getTagLabel)
+           // Get tag value from label (reverse of getTagLabel) - CORRECTED device-site mapping
             const getTagValue = (label) => {
                 const tagMap = {
                     'Vídeo Tutorial': 'orientation-video',
                     'Presencial': 'orientation-presencial',
                     'App': 'device-app',
-                    'Site': 'device-site',
+                    'Site': 'device-site', // Corrected this mapping
                     'AVA - Crítico': 'diff-critico',
                     'AVA - Sabe': 'diff-sabe',
                     'AVA - Dicas': 'diff-dicas',
@@ -208,13 +244,11 @@
             }
           };
 
-          // Add a new student
+          // Add a new student - UPDATED VALIDATION
           const addStudent = () => {
-            // Basic validation - check if required fields are filled
-            if (!formData.name || !formData.course ||
-                !formData.orientation || !formData.device || !formData.difficulty ||
-                !formData.ativo || !formData.boleto || !formData.forumDiscursiva) {
-              alert('Por favor, preencha todos os campos');
+            // Only validate Name and Course
+            if (!formData.name || !formData.course) {
+              alert('Por favor, preencha o Nome do Aluno e o Curso.');
               return;
             }
 
@@ -222,8 +256,16 @@
               id: Date.now(),
               name: formData.name,
               course: formData.course,
-              // Combine all selected statuses into the status array
-              status: [formData.orientation, formData.device, formData.difficulty, formData.ativo, formData.boleto, formData.forumDiscursiva]
+              entryDate: formData.entryDate, // Include new field
+              // Combine all selected statuses into the status array, allow empty
+              status: [
+                  formData.orientation || '', // Include even if empty
+                  formData.device || '',       // Include even if empty
+                  formData.difficulty || '',   // Include even if empty
+                  formData.ativo || 'ativo-true', // Default to active if empty
+                  formData.boleto || '',       // Include even if empty
+                  formData.forumDiscursiva || '' // Include even if empty
+              ].filter(tag => tag !== '') // Filter out empty tags from the status array
             };
 
             setStudents([...students, newStudent]);
@@ -231,17 +273,18 @@
             resetForm();
           };
 
-          // Reset form fields - UPDATED (reset to default new options)
+          // Reset form fields - UPDATED (reset to default new options and entryDate)
           const resetForm = () => {
             setFormData({
               name: '',
               course: '',
-              orientation: '', // Reset to empty to force selection
-              device: '',       // Reset to empty to force selection
-              difficulty: '',   // Reset to empty to force selection
+              entryDate: '',
+              orientation: '', // Reset to empty
+              device: '',       // Reset to empty
+              difficulty: '',   // Reset to empty
               ativo: 'ativo-true', // Reset to active
-              boleto: '',
-              forumDiscursiva: '' // Reset to empty to force selection
+              boleto: '',       // Reset to empty
+              forumDiscursiva: '' // Reset to empty
             });
           };
 
@@ -261,6 +304,7 @@
                 'ID': student.id,
                 'Nome do Aluno': student.name,
                 'Curso': student.course,
+                'Data de Ingresso': student.entryDate, // Include new field
                 'Orientação': orientation,
                 'Dispositivo': device,
                 'Dificuldade AVA': difficulty,
@@ -323,7 +367,8 @@
                         id: studentId, // Use parsed/generated ID
                         name: item['Nome do Aluno'] || 'Nome Desconhecido',
                         course: item['Curso'] || 'Curso Desconhecido',
-                        status: statusArray
+                        entryDate: item['Data de Ingresso'] || '', // Include new field
+                        status: statusArray.filter(tag => tag !== '') // Filter out empty tags
                     };
                 });
 
@@ -346,6 +391,11 @@
           // Function to trigger the hidden file input click
           const triggerImport = () => {
             fileInputRef.current.click();
+          };
+
+          // Function to clear search term
+          const clearSearch = () => {
+            setSearchTerm('');
           };
 
 
@@ -380,8 +430,14 @@
             }, [student, isEditing]); // Depend on student and isEditing state
 
 
-            // Handle save of edited student (for the main edit form)
+            // Handle save of edited student (for the main edit form) - UPDATED VALIDATION
             const handleSave = () => {
+               // Only validate Name and Course
+                if (!editedStudent.name || !editedStudent.course) {
+                    alert('Por favor, preencha o Nome do Aluno e o Curso.');
+                    return;
+                }
+
               // Filter out old status values by their prefixes
               const newStatus = student.status.filter(
                 tag => !['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-'].some(prefix => tag.startsWith(prefix))
@@ -399,7 +455,7 @@
               // Create the updated student object
               const updatedStudent = {
                 ...editedStudent,
-                status: newStatus
+                status: newStatus.filter(tag => tag !== '') // Filter out empty tags
               };
 
               // Call the parent update function
@@ -420,7 +476,7 @@
 
                 const updatedStudent = {
                     ...student,
-                    status: newStatusArray
+                    status: newStatusArray.filter(tag => tag !== '') // Filter out empty tags
                 };
                 onUpdate(updatedStudent); // Update the parent state
                 setEditingStatus(null); // Close the inline editor
@@ -534,21 +590,33 @@
                   // Adjusted spacing in edit form
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium mb-1">Nome</label>
+                      <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label> {/* Indicate required field */}
                       <input
                         type="text"
                         value={editedStudent.name}
                         onChange={(e) => setEditedStudent({...editedStudent, name: e.target.value})}
                         className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        required // Add required attribute for browser-level validation
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Curso</label>
+                      <label className="block text-sm font-medium mb-1">Curso <span className="text-red-500">*</span></label> {/* Indicate required field */}
                       <input
                         type="text"
                         value={editedStudent.course}
                         onChange={(e) => setEditedStudent({...editedStudent, course: e.target.value})}
                         className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        required // Add required attribute
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Data de Ingresso (Ex: 2025.1)</label> {/* New field */}
+                      <input
+                        type="text"
+                        value={editedStudent.entryDate}
+                        onChange={(e) => setEditedStudent({...editedStudent, entryDate: e.target.value})}
+                        className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        placeholder="Ex: 2025.1"
                       />
                     </div>
                     {/* Adjusted gap in the grid */}
@@ -651,6 +719,9 @@
                       </h3>
                       <p className="student-course text-gray-400 text-sm">
                         {student.course}
+                        {student.entryDate && ( // Display entry date if available
+                            <span className="ml-2 text-gray-500 text-xs">({student.entryDate})</span>
+                        )}
                       </p>
                     </div>
                     <div className="status-group flex flex-wrap gap-1 mt-2">
@@ -703,9 +774,9 @@
               <nav className="navbar sticky top-0 z-10 flex justify-between items-center p-4 bg-black/50 backdrop-blur-md">
                 {/* Container for the count circle and title */}
                 <div className="flex items-center">
-                    {/* Student Count Circle */}
-                    <div className="student-count-circle">
-                        {students.length}
+                    {/* Student Count Circle - Displays count of filtered students and changes color */}
+                    <div className={`student-count-circle ${countCircleColorClass}`}>
+                        {filteredStudents.length}
                     </div>
                     <div className="logo text-2xl font-bold text-blue-400">Plataforma AVA</div>
                 </div>
@@ -788,14 +859,23 @@
               <main className="container mx-auto px-4 py-8">
                 {/* Filters - UPDATED (added new filter options) */}
                 <div className="filters flex flex-wrap gap-4 mb-8">
-                  <div className="flex-grow min-w-[200px]">
+                  <div className="flex-grow min-w-[200px] search-input-container"> {/* Added search-input-container class */}
                     <input
                       type="text"
                       placeholder="Buscar aluno..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="search-input w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white placeholder-gray-400"
+                      className="search-input w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white placeholder-gray-400 pr-10" /* Added pr-10 for button space */
                     />
+                    {searchTerm && ( /* Conditionally render clear button */
+                        <button
+                            onClick={clearSearch}
+                            className="clear-button"
+                            aria-label="Limpar busca"
+                        >
+                            &times; {/* HTML entity for 'x' */}
+                        </button>
+                    )}
                   </div>
                   <div className="min-w-[200px]">
                     <select
@@ -829,21 +909,33 @@
                     {/* Adjusted spacing in the form */}
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Nome do Aluno</label>
+                        <label className="block text-sm font-medium mb-1">Nome do Aluno <span className="text-red-500">*</span></label> {/* Indicate required field */}
                         <input
                           type="text"
                           value={formData.name}
                           onChange={(e) => setFormData({...formData, name: e.target.value})}
                           className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                          required // Add required attribute for browser-level validation
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Curso</label>
+                        <label className="block text-sm font-medium mb-1">Curso <span className="text-red-500">*</span></label> {/* Indicate required field */}
                         <input
                           type="text"
                           value={formData.course}
                           onChange={(e) => setFormData({...formData, course: e.target.value})}
                           className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                          required // Add required attribute
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Data de Ingresso (Ex: 2025.1)</label> {/* New field */}
+                        <input
+                          type="text"
+                          value={formData.entryDate}
+                          onChange={(e) => setFormData({...formData, entryDate: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                          placeholder="Ex: 2025.1"
                         />
                       </div>
                       {/* Adjusted gap in the grid */}
