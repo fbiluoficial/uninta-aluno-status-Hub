@@ -95,39 +95,54 @@
           const [formData, setFormData] = useState({
             name: '',
             course: '',
-            entryDate: '', // New field for entry date
+            entryDate: '', // Field for entry date
+            level: '', // New field for student level
             orientation: '',
             device: '',
-            difficulty: '', // Will be updated with new options
+            difficulty: '',
             ativo: 'ativo-true', // Default new students to active
             boleto: '',
-            forumDiscursiva: '' // Will be updated with new options
+            forumDiscursiva: ''
           });
 
           // Load students from localStorage on initial render
           useEffect(() => {
             const savedStudents = JSON.parse(localStorage.getItem('students'));
             if (savedStudents) {
-              // Ensure loaded students have default 'ativo' status and entryDate if missing
+              // Ensure loaded students have default statuses and entryDate if missing
               const updatedStudents = savedStudents.map(student => {
+                  if (!student.status) { // Ensure status array exists
+                      student.status = [];
+                  }
                   if (!student.status.some(s => s.startsWith('ativo-'))) {
                       student.status = [...student.status, 'ativo-true'];
+                  }
+                   if (!student.status.some(s => s.startsWith('level-'))) { // Ensure level status exists
+                      student.status = [...student.status, '']; // Add empty level status
                   }
                   if (!student.entryDate) { // Ensure entryDate exists
                       student.entryDate = '';
                   }
+                  // Ensure all expected status prefixes are present, adding empty ones if missing
+                   const expectedPrefixes = ['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-', 'level-'];
+                   expectedPrefixes.forEach(prefix => {
+                       if (!student.status.some(s => s.startsWith(prefix))) {
+                           student.status.push(''); // Add empty tag for missing prefix
+                       }
+                   });
+
+
                   return student;
               });
-              setStudents(updatedStudents);
+              setStudents(updatedStudents.filter(student => student.name && student.course)); // Filter out students without name or course on load
             } else {
-              // Initial sample student with updated status types and entryDate
+              // Initial sample student with all fields
               const initialStudent = {
                 id: Date.now(),
                 name: "Carlos Santos",
                 course: "Administração",
                 entryDate: "2025.1", // Sample entry date
-                // Updated sample status values - using new 'diff-sabe' and 'diff-dicas'
-                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe"]
+                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano"] // Sample level status
               };
               setStudents([initialStudent]);
             }
@@ -173,7 +188,7 @@
           const countCircleColorClass = (searchTerm || filterStatus) ? 'bg-yellow-500 text-gray-900' : 'bg-blue-500';
 
 
-          // Get label for status tag - UPDATED
+          // Get label for status tag
           const getTagLabel = (tag) => {
             const tagMap = {
               'orientation-video': 'Vídeo Tutorial',
@@ -187,19 +202,21 @@
               'ativo-false': 'Inativo',
               'boleto-sabe': 'Boleto (Sabe)',
               'boleto-nao-sabe': 'Boleto (Não Sabe)',
-              'forum-discursiva-sabe': 'Fórum/Discursiva (Sabe Finalizar)', // Updated label
-              'forum-discursiva-nao-sabe': 'Fórum/Discursiva (Não Sabe Finalizar)' // Updated label
+              'forum-discursiva-sabe': 'Fórum/Discursiva (Sabe Finalizar)',
+              'forum-discursiva-nao-sabe': 'Fórum/Discursiva (Não Sabe Finalizar)',
+              'level-veterano': 'Nível: Veterano', // New label
+              'level-novato': 'Nível: Novato' // New label
             };
             return tagMap[tag] || tag;
           };
 
-           // Get tag value from label (reverse of getTagLabel) - CORRECTED device-site mapping
+           // Get tag value from label (reverse of getTagLabel)
             const getTagValue = (label) => {
                 const tagMap = {
                     'Vídeo Tutorial': 'orientation-video',
                     'Presencial': 'orientation-presencial',
                     'App': 'device-app',
-                    'Site': 'device-site', // Corrected this mapping
+                    'Site': 'device-site',
                     'AVA - Crítico': 'diff-critico',
                     'AVA - Sabe': 'diff-sabe',
                     'AVA - Dicas': 'diff-dicas',
@@ -208,13 +225,15 @@
                     'Boleto (Sabe)': 'boleto-sabe',
                     'Boleto (Não Sabe)': 'boleto-nao-sabe',
                     'Fórum/Discursiva (Sabe Finalizar)': 'forum-discursiva-sabe',
-                    'Fórum/Discursiva (Não Sabe Finalizar)': 'forum-discursiva-nao-sabe'
+                    'Fórum/Discursiva (Não Sabe Finalizar)': 'forum-discursiva-nao-sabe',
+                    'Nível: Veterano': 'level-veterano', // New mapping
+                    'Nível: Novato': 'level-novato' // New mapping
                 };
                 return tagMap[label] || label; // Return original label if not found
             };
 
 
-          // Get tag color classes or special rendering for 'ativo' - UPDATED (added colors for new types)
+          // Get tag color classes or special rendering for 'ativo' and 'level'
           const getTagColor = (tag) => {
             const colorMap = {
               'orientation-video': 'bg-blue-500',
@@ -227,7 +246,9 @@
               'boleto-sabe': 'bg-green-600',
               'boleto-nao-sabe': 'bg-red-600',
               'forum-discursiva-sabe': 'bg-purple-600',
-              'forum-discursiva-nao-sabe': 'bg-pink-600'
+              'forum-discursiva-nao-sabe': 'bg-pink-600',
+              'level-veterano': 'bg-green-700', // Green for Veterano
+              'level-novato': 'bg-red-700' // Red for Novato
             };
             // Special handling for 'ativo' status to render a circle
             if (tag.startsWith('ativo-')) {
@@ -244,7 +265,7 @@
             }
           };
 
-          // Add a new student - UPDATED VALIDATION
+          // Add a new student - UPDATED VALIDATION and fields
           const addStudent = () => {
             // Only validate Name and Course
             if (!formData.name || !formData.course) {
@@ -256,15 +277,16 @@
               id: Date.now(),
               name: formData.name,
               course: formData.course,
-              entryDate: formData.entryDate, // Include new field
+              entryDate: formData.entryDate, // Include entryDate
               // Combine all selected statuses into the status array, allow empty
               status: [
-                  formData.orientation || '', // Include even if empty
-                  formData.device || '',       // Include even if empty
-                  formData.difficulty || '',   // Include even if empty
+                  formData.orientation || '',
+                  formData.device || '',
+                  formData.difficulty || '',
                   formData.ativo || 'ativo-true', // Default to active if empty
-                  formData.boleto || '',       // Include even if empty
-                  formData.forumDiscursiva || '' // Include even if empty
+                  formData.boleto || '',
+                  formData.forumDiscursiva || '',
+                  formData.level || '' // Include new level field
               ].filter(tag => tag !== '') // Filter out empty tags from the status array
             };
 
@@ -273,18 +295,19 @@
             resetForm();
           };
 
-          // Reset form fields - UPDATED (reset to default new options and entryDate)
+          // Reset form fields - UPDATED (reset to default new options, entryDate, and level)
           const resetForm = () => {
             setFormData({
               name: '',
               course: '',
               entryDate: '',
-              orientation: '', // Reset to empty
-              device: '',       // Reset to empty
-              difficulty: '',   // Reset to empty
+              level: '', // Reset level
+              orientation: '',
+              device: '',
+              difficulty: '',
               ativo: 'ativo-true', // Reset to active
-              boleto: '',       // Reset to empty
-              forumDiscursiva: '' // Reset to empty
+              boleto: '',
+              forumDiscursiva: ''
             });
           };
 
@@ -299,12 +322,14 @@
               const ativo = getTagLabel(student.status.find(tag => tag.startsWith('ativo-')) || '');
               const boleto = getTagLabel(student.status.find(tag => tag.startsWith('boleto-')) || '');
               const forumDiscursiva = getTagLabel(student.status.find(tag => tag.startsWith('forum-discursiva-')) || '');
+              const level = getTagLabel(student.status.find(tag => tag.startsWith('level-')) || ''); // Extract new level
 
               return {
                 'ID': student.id,
                 'Nome do Aluno': student.name,
                 'Curso': student.course,
-                'Data de Ingresso': student.entryDate, // Include new field
+                'Data de Ingresso': student.entryDate, // Include entryDate
+                'Nível do Aluno': level, // Include new level column
                 'Orientação': orientation,
                 'Dispositivo': device,
                 'Dificuldade AVA': difficulty,
@@ -362,12 +387,13 @@
                     if (item['Status Ativo']) statusArray.push(getTagValue(item['Status Ativo']));
                     if (item['Emitir Boleto']) statusArray.push(getTagValue(item['Emitir Boleto']));
                     if (item['Fórum/Discursiva']) statusArray.push(getTagValue(item['Fórum/Discursiva']));
+                    if (item['Nível do Aluno']) statusArray.push(getTagValue(item['Nível do Aluno'])); // Include new level
 
                     return {
                         id: studentId, // Use parsed/generated ID
                         name: item['Nome do Aluno'] || 'Nome Desconhecido',
                         course: item['Curso'] || 'Curso Desconhecido',
-                        entryDate: item['Data de Ingresso'] || '', // Include new field
+                        entryDate: item['Data de Ingresso'] || '', // Include entryDate
                         status: statusArray.filter(tag => tag !== '') // Filter out empty tags
                     };
                 });
@@ -422,7 +448,8 @@
                   difficulty: extractStatusValue('diff-'),
                   ativo: extractStatusValue('ativo-'),
                   boleto: extractStatusValue('boleto-'),
-                  forumDiscursiva: extractStatusValue('forum-discursiva-')
+                  forumDiscursiva: extractStatusValue('forum-discursiva-'),
+                  level: extractStatusValue('level-') // Extract new level
                 });
               } else { // When exiting edit mode, reset editedStudent to match the current student prop
                    setEditedStudent({ ...student });
@@ -430,7 +457,7 @@
             }, [student, isEditing]); // Depend on student and isEditing state
 
 
-            // Handle save of edited student (for the main edit form) - UPDATED VALIDATION
+            // Handle save of edited student (for the main edit form) - UPDATED VALIDATION and fields
             const handleSave = () => {
                // Only validate Name and Course
                 if (!editedStudent.name || !editedStudent.course) {
@@ -440,7 +467,7 @@
 
               // Filter out old status values by their prefixes
               const newStatus = student.status.filter(
-                tag => !['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-'].some(prefix => tag.startsWith(prefix))
+                tag => !['orientation-', 'device-', 'diff-', 'ativo-', 'boleto-', 'forum-discursiva-', 'level-'].some(prefix => tag.startsWith(prefix)) // Include new prefix
               );
 
               // Add updated status values from the edited form state, if they are not empty
@@ -450,6 +477,7 @@
               if (editedStudent.ativo) newStatus.push(editedStudent.ativo);
               if (editedStudent.boleto) newStatus.push(editedStudent.boleto);
               if (editedStudent.forumDiscursiva) newStatus.push(editedStudent.forumDiscursiva);
+              if (editedStudent.level) newStatus.push(editedStudent.level); // Include new level
 
 
               // Create the updated student object
@@ -464,7 +492,7 @@
               setIsEditing(false);
             };
 
-            // Handle inline status change
+            // Handle inline status change - UPDATED to include level
             const handleInlineStatusChange = (prefix, newValue) => {
                 // Find the old tag with the given prefix
                 const oldTag = student.status.find(tag => tag.startsWith(prefix));
@@ -484,7 +512,7 @@
 
             // Render status tag, with special handling for 'ativo' and inline editing - UPDATED (options for inline select and order)
             const renderStatusTag = (tag, index) => {
-                const prefix = tag.split('-')[0] + '-'; // Get the prefix (e.g., 'orientation-', 'boleto-')
+                const prefix = tag.split('-')[0] + '-'; // Get the prefix (e.g., 'orientation-', 'boleto-', 'level-')
 
                 // Handle 'ativo' status toggle
                 if (tag.startsWith('ativo-')) {
@@ -530,7 +558,7 @@
                                 { value: 'device-site', label: 'Site' }
                             ];
                             break;
-                        case 'diff-': // UPDATED OPTIONS
+                        case 'diff-':
                             options = [
                                 { value: 'diff-critico', label: 'AVA - Crítico' },
                                 { value: 'diff-sabe', label: 'AVA - Sabe' },
@@ -543,10 +571,16 @@
                                 { value: 'boleto-nao-sabe', label: 'Boleto (Não Sabe)' }
                             ];
                             break;
-                        case 'forum-discursiva-': // UPDATED OPTIONS
+                        case 'forum-discursiva-':
                             options = [
-                                { value: 'forum-discursiva-sabe', label: 'Fórum/Discursiva (Sabe Finalizar)' }, // Updated label
-                                { value: 'forum-discursiva-nao-sabe', label: 'Fórum/Discursiva (Não Sabe Finalizar)' } // Updated label
+                                { value: 'forum-discursiva-sabe', label: 'Fórum/Discursiva (Sabe Finalizar)' },
+                                { value: 'forum-discursiva-nao-sabe', label: 'Fórum/Discursiva (Não Sabe Finalizar)' }
+                            ];
+                            break;
+                        case 'level-': // New case for level status
+                            options = [
+                                { value: 'level-veterano', label: 'Nível: Veterano' },
+                                { value: 'level-novato', label: 'Nível: Novato' }
                             ];
                             break;
                         default:
@@ -618,6 +652,19 @@
                         className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
                         placeholder="Ex: 2025.1"
                       />
+                    </div>
+                     {/* New Level Field */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Nível do Aluno</label> {/* New field */}
+                      <select
+                        value={editedStudent.level}
+                        onChange={(e) => setEditedStudent({...editedStudent, level: e.target.value})}
+                        className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="level-veterano">Veterano</option>
+                        <option value="level-novato">Novato</option>
+                      </select>
                     </div>
                     {/* Adjusted gap in the grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -717,6 +764,7 @@
                       <h3 className="student-name text-xl font-bold text-blue-400 mb-1">
                         {student.name}
                       </h3>
+                       {/* Display Course and Entry Date */}
                       <p className="student-course text-gray-400 text-sm">
                         {student.course}
                         {student.entryDate && ( // Display entry date if available
@@ -729,12 +777,16 @@
                       {student.status.filter(tag => tag.startsWith('ativo-')).map((tag, index) => (
                           renderStatusTag(tag, index)
                       ))}
+                       {/* Render Level status next */}
+                       {student.status.filter(tag => tag.startsWith('level-')).map((tag, index) => (
+                          renderStatusTag(tag, index + 50) // Use offset key
+                      ))}
                       {/* Render "Não Sabe" and "Crítico" statuses next */}
                        {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag, index) => (
                           renderStatusTag(tag, index + 100) // Use offset key to avoid conflicts
                       ))}
                       {/* Render other statuses */}
-                      {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag, index) => (
+                      {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag, index) => (
                           renderStatusTag(tag, index + 200) // Use offset key
                       ))}
                     </div>
@@ -770,7 +822,7 @@
 
           return (
             <div className="min-h-screen bg-gradient-to-br from-gray-900 to-red-900 text-gray-100">
-              {/* Navigation - UPDATED (added settings icon and dropdown menu) */}
+              {/* Navigation */}
               <nav className="navbar sticky top-0 z-10 flex justify-between items-center p-4 bg-black/50 backdrop-blur-md">
                 {/* Container for the count circle and title */}
                 <div className="flex items-center">
@@ -857,7 +909,7 @@
 
               {/* Main Content */}
               <main className="container mx-auto px-4 py-8">
-                {/* Filters - UPDATED (added new filter options) */}
+                {/* Filters */}
                 <div className="filters flex flex-wrap gap-4 mb-8">
                   <div className="flex-grow min-w-[200px] search-input-container"> {/* Added search-input-container class */}
                     <input
@@ -897,11 +949,13 @@
                       <option value="boleto-nao-sabe">Boleto (Não Sabe)</option>
                       <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
                       <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
+                       <option value="level-veterano">Nível: Veterano</option> {/* New filter option */}
+                       <option value="level-novato">Nível: Novato</option> {/* New filter option */}
                     </select>
                   </div>
                 </div>
 
-                {/* Add New Student Form - UPDATED (added new form options) */}
+                {/* Add New Student Form */}
                 {isAdding && (
                   // Adjusted padding and margin for compactness
                   <div className="form-container bg-gray-800/70 backdrop-blur-lg rounded-xl p-5 mb-6 max-w-2xl mx-auto">
@@ -937,6 +991,19 @@
                           className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
                           placeholder="Ex: 2025.1"
                         />
+                      </div>
+                       {/* New Level Field */}
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Nível do Aluno</label> {/* New field */}
+                        <select
+                          value={formData.level}
+                          onChange={(e) => setFormData({...formData, level: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="level-veterano">Veterano</option>
+                          <option value="level-novato">Novato</option>
+                        </select>
                       </div>
                       {/* Adjusted gap in the grid */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -977,7 +1044,7 @@
                             <option value="diff-dicas">AVA - Dicas</option>
                           </select>
                         </div>
-                         {/* New Status Fields in Add Form */}
+                         {/* Status Fields */}
                          <div>
                           <label className="block text-sm font-medium mb-1">Status Ativo</label>
                           <select
