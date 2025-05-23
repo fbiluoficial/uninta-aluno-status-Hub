@@ -218,7 +218,7 @@
                     'Vídeo Tutorial': 'orientation-video',
                     'Presencial': 'orientation-presencial',
                     'App': 'device-app',
-                    'Site': 'device-site',
+                    'Site': 'site',
                     'AVA - Crítico': 'diff-critico',
                     'AVA - Sabe': 'diff-sabe',
                     'AVA - Dicas': 'diff-dicas',
@@ -378,8 +378,8 @@
 
                 // Map JSON data back to student object structure
                 const importedStudents = jsonStudents.map(item => {
-                    // Ensure ID is treated as a number (or generate a new one if missing/invalid)
-                    const studentId = item['ID'] && !isNaN(item['ID']) ? item['ID'] : crypto.randomUUID(); // Changed to use crypto.randomUUID()
+                    // Always generate a new unique ID for imported students
+                    const studentId = crypto.randomUUID();
 
                     // Reconstruct the status array from the imported columns, filtering out empty
                     const statusArray = [
@@ -393,7 +393,7 @@
                     ].filter(tag => tag && tag !== ''); // Filter out null, undefined, and empty strings
 
                     return {
-                        id: studentId, // Use parsed/generated ID
+                        id: studentId, // Use the newly generated unique ID
                         name: item['Nome do Aluno'] || 'Nome Desconhecido',
                         course: item['Curso'] || 'Curso Desconhecido',
                         entryDate: item['Data de Ingresso'] || '', // Include entryDate
@@ -535,7 +535,7 @@
             };
 
             // Render status tag, with special handling for 'ativo' and inline editing - UPDATED (options for inline select and order)
-            const renderStatusTag = (tag, index) => {
+            const renderStatusTag = (tag) => { // Removed index, using tag as key
                 const prefix = tag.split('-')[0] + '-'; // Get the prefix (e.g., 'orientation-', 'boleto-', 'level-')
 
                 // Handle 'ativo' status toggle
@@ -554,7 +554,7 @@
 
                     return (
                         <span
-                            key={index}
+                            key={tag} // Changed key to tag
                             className="status-tag flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-100 cursor-pointer hover:bg-gray-600 transition-colors"
                             onClick={toggleActiveStatus}
                             title={`Clique para ${isActive ? 'desativar' : 'ativar'}`}
@@ -613,7 +613,7 @@
 
                     return (
                          <select
-                            key={index}
+                            key={tag} // Changed key to tag
                             value={editingStatus.currentValue}
                             onChange={(e) => handleInlineStatusChange(prefix, e.target.value)}
                             onBlur={() => setEditingStatus(null)} // Close on blur
@@ -630,7 +630,7 @@
                     // Render static tag for other statuses, make them clickable to start inline edit
                     return (
                         <span
-                            key={index}
+                            key={tag} // Changed key to tag
                             className={`status-tag px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagColor(tag)}`}
                             onClick={() => setEditingStatus({ prefix: prefix, currentValue: tag })} // Set editing state on click
                         >
@@ -799,20 +799,20 @@
                     </div>
                     <div className="status-group flex flex-wrap gap-1 mt-2">
                       {/* Render Ativo status first */}
-                      {student.status.filter(tag => tag.startsWith('ativo-')).map((tag, index) => (
-                          renderStatusTag(tag, index)
+                      {student.status.filter(tag => tag.startsWith('ativo-')).map((tag) => (
+                          renderStatusTag(tag)
                       ))}
                        {/* Render Level status next */}
-                       {student.status.filter(tag => tag.startsWith('level-')).map((tag, index) => (
-                          renderStatusTag(tag, index + 50) // Use offset key
+                       {student.status.filter(tag => tag.startsWith('level-')).map((tag) => (
+                          renderStatusTag(tag)
                       ))}
                       {/* Render "Não Sabe" and "Crítico" statuses next */}
-                       {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag, index) => (
-                          renderStatusTag(tag, index + 100) // Use offset key to avoid conflicts
+                       {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag) => (
+                          renderStatusTag(tag)
                       ))}
                       {/* Render other statuses */}
-                      {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag, index) => (
-                          renderStatusTag(tag, index + 200) // Use offset key
+                      {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag) => (
+                          renderStatusTag(tag)
                       ))}
                     </div>
                     <div className="student-actions absolute top-3 right-3 flex gap-2">
