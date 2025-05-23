@@ -434,22 +434,27 @@
             }
           };
 
-          // Function to update unique IDs for all students
+          // Function to update unique IDs for all students and clear local storage
           const updateUniqueIds = () => {
-            if (window.confirm('Tem certeza que deseja atualizar os IDs de todos os alunos? Isso pode ser útil para corrigir IDs duplicados ou inválidos.')) {
+            if (window.confirm('Tem certeza que deseja atualizar os IDs de todos os alunos e limpar o cache da página? Isso pode ser útil para corrigir IDs duplicados ou inválidos e garantir que a aplicação use os dados mais recentes.')) {
               const seenIds = new Set();
               const updatedStudents = students.map(student => {
                 let newId = student.id;
                 // Check if ID is not a string (e.g., old number timestamp) or if it's a duplicate
+                // For simplicity, just check for duplicates or non-string IDs from old imports.
                 if (typeof newId !== 'string' || seenIds.has(newId)) {
                   newId = crypto.randomUUID();
                 }
                 seenIds.add(newId);
                 return { ...student, id: newId };
               });
-              setStudents(updatedStudents);
-              alert('IDs dos alunos atualizados com sucesso!');
-              setIsMenuOpen(false); // Close menu after action
+              setStudents(updatedStudents); // Update state first
+
+              // Save the updated students to localStorage immediately after generating new IDs
+              localStorage.setItem('students', JSON.stringify(updatedStudents));
+
+              alert('IDs dos alunos atualizados e cache da página limpo com sucesso! A página será recarregada.');
+              window.location.reload(); // Reload the page
             }
           };
 
