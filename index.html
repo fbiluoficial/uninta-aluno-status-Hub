@@ -45,9 +45,6 @@
             transition: background-color 0.3s ease; /* Smooth transition for color change */
         }
         /* Style for the search input container */
-        .search-input-container {
-            position: relative;
-        }
         .search-input-container .clear-button {
             position: absolute;
             right: 8px; /* Adjust as needed */
@@ -436,6 +433,26 @@
               setIsMenuOpen(false); // Close menu after action
             }
           };
+
+          // Function to update unique IDs for all students
+          const updateUniqueIds = () => {
+            if (window.confirm('Tem certeza que deseja atualizar os IDs de todos os alunos? Isso pode ser útil para corrigir IDs duplicados ou inválidos.')) {
+              const seenIds = new Set();
+              const updatedStudents = students.map(student => {
+                let newId = student.id;
+                // Check if ID is not a string (e.g., old number timestamp) or if it's a duplicate
+                if (typeof newId !== 'string' || seenIds.has(newId)) {
+                  newId = crypto.randomUUID();
+                }
+                seenIds.add(newId);
+                return { ...student, id: newId };
+              });
+              setStudents(updatedStudents);
+              alert('IDs dos alunos atualizados com sucesso!');
+              setIsMenuOpen(false); // Close menu after action
+            }
+          };
+
 
           // Function to check for duplicate students (same name and course)
           const isDuplicateStudent = (currentStudent) => {
@@ -916,6 +933,14 @@
                             }}
                         >
                             Gestão de Materiais Didáticos
+                        </a>
+                        {/* New Menu Item: Atualizar IDs Únicos */}
+                        <a
+                            href="#"
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                            onClick={updateUniqueIds} // Call the new function
+                        >
+                            Atualizar IDs Únicos
                         </a>
                         {/* New Menu Item: Zerar Todos */}
                          <a
