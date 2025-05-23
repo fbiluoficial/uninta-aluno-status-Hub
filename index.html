@@ -171,7 +171,7 @@
             const matchesSearch =
               student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
               student.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (student.entryDate && student.entryDate.toLowerCase().includes(searchTerm.toLowerCase())); // Include entryDate in search
+              (student.entryDate && student.entryDate.toLowerCase().includes(searchTerm.toLowerCase())); // Incluir entryDate na busca
 
             const matchesFilter = filterStatus ?
               student.status.includes(filterStatus) : true;
@@ -420,9 +420,30 @@
             setSearchTerm('');
           };
 
+          // Function to clear all student data
+          const clearAllStudents = () => {
+            if (window.confirm('ATENÇÃO: Tem certeza que deseja APAGAR TODOS os dados de alunos? Esta ação é irreversível.')) {
+              setStudents([]); // Clear the students array in state
+              localStorage.removeItem('students'); // Clear data from localStorage
+              alert('Todos os dados de alunos foram zerados.'); // Confirmation message
+              setIsMenuOpen(false); // Close menu after action
+            }
+          };
+
+          // Function to check for duplicate students (same name and course)
+          const isDuplicateStudent = (currentStudent) => {
+            // Count occurrences of the current student's name and course combination
+            const count = students.filter(student =>
+              student.name.toLowerCase() === currentStudent.name.toLowerCase() &&
+              student.course.toLowerCase() === currentStudent.course.toLowerCase()
+            ).length;
+            // If count is greater than 1, it means there are duplicates (including itself)
+            return count > 1;
+          };
+
 
           // Student card component with inline editing
-          const StudentCard = ({ student, onUpdate, onDelete }) => {
+          const StudentCard = ({ student, onUpdate, onDelete, isDuplicate }) => { // Added isDuplicate prop
             const [isEditing, setIsEditing] = useState(false);
             // State to hold the student data being edited in the main form
             const [editedStudent, setEditedStudent] = useState({ ...student });
@@ -615,7 +636,8 @@
 
             return (
               // Adjusted padding and margin for compactness
-              <div className="student-card bg-gray-800/70 backdrop-blur-lg rounded-xl p-4 mb-4 relative">
+              // Added conditional styling for duplicate students
+              <div className={`student-card bg-gray-800/70 backdrop-blur-lg rounded-xl p-4 mb-4 relative ${isDuplicate ? 'border-2 border-red-500' : ''}`}>
                 {isEditing ? (
                   // Adjusted spacing in edit form
                   <div className="space-y-3">
@@ -888,6 +910,14 @@
                         >
                             Gestão de Materiais Didáticos
                         </a>
+                        {/* New Menu Item: Zerar Todos */}
+                         <a
+                            href="#"
+                            className="block px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
+                            onClick={clearAllStudents} // Call the clearAllStudents function
+                        >
+                            Zerar Todos
+                        </a>
                       </div>
                     )}
                 </div>
@@ -1114,6 +1144,7 @@
                           ));
                         }}
                         onDelete={deleteStudent}
+                        isDuplicate={isDuplicateStudent(student)} // Pass the duplicate status
                       />
                     ))
                   )}
@@ -1136,7 +1167,8 @@
         }
 
         // Render the App component into the root div
-        ReactDOM.render(<App />, document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
 
     </script>
 </body>
