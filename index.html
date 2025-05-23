@@ -981,6 +981,13 @@
                   </div>
                 </div>
 
+                {/* Mensagem de Resultados da Busca */}
+                {searchTerm && filteredStudents.length > 0 && (
+                    <p className="text-center py-4 text-blue-300 text-lg">
+                        {filteredStudents.length} aluno(s) encontrado(s) para "{searchTerm}"
+                    </p>
+                )}
+
                 {/* Add New Student Form */}
                 {isAdding && (
                   // Adjusted padding and margin for compactness
