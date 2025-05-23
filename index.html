@@ -1018,166 +1018,17 @@
                   </div>
                 </div>
 
-                {/* Mensagem de Resultados da Busca */}
-                {searchTerm && filteredStudents.length > 0 && (
+                {/* Mensagem de Resultados da Busca - REMOVIDA */}
+                {/* {searchTerm && filteredStudents.length > 0 && (
                     <p className="text-center py-4 text-blue-300 text-lg">
                         {filteredStudents.length} aluno(s) encontrado(s) para "{searchTerm}"
                     </p>
-                )}
-
-                {/* Add New Student Form */}
-                {isAdding && (
-                  // Adjusted padding and margin for compactness
-                  <div className="form-container bg-gray-800/70 backdrop-blur-lg rounded-xl p-5 mb-6 max-w-2xl mx-auto">
-                    <h1 className="text-2xl font-bold text-blue-400 mb-4">Adicionar Novo Aluno</h1>
-                    {/* Adjusted spacing in the form */}
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label> {/* Indicate required field */}
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          required // Add required attribute for browser-level validation
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Curso <span className="text-red-500">*</span></label> {/* Indicate required field */}
-                        <input
-                          type="text"
-                          value={formData.course}
-                          onChange={(e) => setFormData({...formData, course: e.target.value})}
-                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          required // Add required attribute
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Data de Ingresso (Ex: 2025.1)</label> {/* New field */}
-                        <input
-                          type="text"
-                          value={formData.entryDate}
-                          onChange={(e) => setFormData({...formData, entryDate: e.target.value})}
-                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          placeholder="Ex: 2025.1"
-                        />
-                      </div>
-                       {/* New Level Field */}
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Nível do Aluno</label> {/* New field */}
-                        <select
-                          value={formData.level}
-                          onChange={(e) => setFormData({...formData, level: e.target.value})}
-                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="level-veterano">Veterano</option>
-                          <option value="level-novato">Novato</option>
-                        </select>
-                      </div>
-                      {/* Adjusted gap in the grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Orientação</label>
-                          <select
-                            value={formData.orientation}
-                            onChange={(e) => setFormData({...formData, orientation: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="orientation-video">Vídeo Tutorial</option>
-                            <option value="orientation-presencial">Presencial</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Dispositivo</label>
-                          <select
-                            value={formData.device}
-                            onChange={(e) => setFormData({...formData, device: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="device-app">App</option>
-                            <option value="device-site">Site</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Dificuldade</label>
-                          <select
-                            value={formData.difficulty}
-                            onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="diff-critico">AVA - Crítico</option>
-                            <option value="diff-sabe">AVA - Sabe</option>
-                            <option value="diff-dicas">AVA - Dicas</option>
-                          </select>
-                        </div>
-                         {/* Status Fields */}
-                         <div>
-                          <label className="block text-sm font-medium mb-1">Status Ativo</label>
-                          <select
-                            value={formData.ativo}
-                            onChange={(e) => setFormData({...formData, ativo: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="ativo-true">Ativo</option>
-                            <option value="ativo-false">Inativo</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Emitir Boleto</label>
-                          <select
-                            value={formData.boleto}
-                            onChange={(e) => setFormData({...formData, boleto: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="boleto-sabe">Sabe</option>
-                            <option value="boleto-nao-sabe">Não Sabe</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Fórum/Discursiva</label>
-                          <select
-                            value={formData.forumDiscursiva}
-                            onChange={(e) => setFormData({...formData, forumDiscursiva: e.target.value})}
-                            className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
-                            <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={addStudent}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white"
-                        >
-                          Salvar Aluno
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsAdding(false);
-                            resetForm();
-                          }}
-                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors text-white"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                )} */}
 
                 {/* Student List */}
                 <div className="students-container">
-                  {filteredStudents.length === 0 ? (
-                    <p className="text-center py-8 text-gray-400">Nenhum aluno encontrado.</p>
-                  ) : (
+                  {/* Removido o parágrafo "Nenhum aluno encontrado." */}
+                  {filteredStudents.length > 0 && (
                     filteredStudents.map(student => (
                       <StudentCard
                         key={student.id}
