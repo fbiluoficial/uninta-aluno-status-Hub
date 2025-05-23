@@ -174,14 +174,13 @@
 
           // Filter students based on search and filter criteria
           const filteredStudents = students.filter(student => {
+            console.log('Calculando filteredStudents. filterStatus:', filterStatus, 'searchTerm:', searchTerm); // Debugging log
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
-            if (!lowerCaseSearchTerm) return true;
-
-            const searchWords = lowerCaseSearchTerm.split(/\s+/).filter(word => word.length > 0);
-
-            const studentSearchableText = `${student.name} ${student.course} ${student.entryDate}`.toLowerCase();
-
-            const matchesSearch = searchWords.every(word => studentSearchableText.includes(word));
+            // If search term is empty, show all students for search part
+            const matchesSearch = lowerCaseSearchTerm ?
+                lowerCaseSearchTerm.split(/\s+/).filter(word => word.length > 0).every(word =>
+                    `${student.name} ${student.course} ${student.entryDate}`.toLowerCase().includes(word)
+                ) : true;
 
             const matchesFilter = filterStatus ?
               student.status.includes(filterStatus) : true;
@@ -959,7 +958,10 @@
                   <div className="min-w-[200px]">
                     <select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
+                      onChange={(e) => {
+                          console.log('Filtro de status alterado para:', e.target.value); // Debugging log
+                          setFilterStatus(e.target.value);
+                      }}
                       className="filter-select w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white"
                     >
                       <option value="">Filtrar por status...</option>
@@ -989,7 +991,7 @@
                       <StudentCard
                         key={student.id}
                         student={student}
-                        onEdit={setEditingStudent} // Corrected: Pass setEditingStudent directly
+                        onEdit={setEditingStudent}
                         onDelete={deleteStudent}
                         isDuplicate={isDuplicateStudent(student)}
                       />
@@ -1004,7 +1006,7 @@
                   studentToEdit={editingStudent}
                   onSave={saveStudent}
                   onCancel={() => setEditingStudent(null)}
-                  getTagValue={getTagValue} // Pass getTagValue to the form for status handling
+                  getTagValue={getTagValue}
                 />
               )}
 
