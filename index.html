@@ -107,15 +107,16 @@
           // `editingStudent` will be null for list view, {} for adding, or a student object for editing
           const [editingStudent, setEditingStudent] = useState(null);
           const [isMenuOpen, setIsMenuOpen] = useState(false); // State for menu dropdown visibility
+          // New state for selected student IDs
+          const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+          // New state for view mode: 'active', 'inactive', 'archived', 'all'
+          const [viewMode, setViewMode] = useState('active');
 
           // Ref for the menu container to detect clicks outside
           const menuRef = useRef(null);
           // Ref for the hidden file input for importing
           const fileInputRef = useRef(null);
 
-
-          // Form state for adding new students - now managed within the AddEditStudentForm component
-          // Moved formData state and resetForm logic to AddEditStudentForm component
 
           // Load students from localStorage on initial render
           useEffect(() => {
@@ -130,19 +131,30 @@
                       newStudent.status.push('ativo-true');
                   }
 
-                  if (!newStudent.entryDate) {
+                  if (typeof newStudent.entryDate === 'undefined') {
                       newStudent.entryDate = '';
+                  }
+                  // Ensure lastInteractionDate exists
+                  if (typeof newStudent.lastInteractionDate === 'undefined') {
+                      newStudent.lastInteractionDate = '';
+                  }
+                  // Ensure isArchived exists and defaults to false
+                  if (typeof newStudent.isArchived === 'undefined') {
+                      newStudent.isArchived = false;
                   }
 
                   return newStudent;
               });
               setStudents(updatedStudents.filter(student => student.name && student.course));
             } else {
+              // Initial sample student with all fields
               const initialStudent = {
                 id: crypto.randomUUID(),
                 name: "Carlos Santos",
                 course: "Administração",
                 entryDate: "2025.1",
+                lastInteractionDate: "2025-05-20",
+                isArchived: false, // New field for archiving
                 status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano"]
               };
               setStudents([initialStudent]);
@@ -172,24 +184,37 @@
             }, [isMenuOpen]);
 
 
-          // Filter students based on search and filter criteria
+          // Filter students based on search, status filter, and view mode
           const filteredStudents = students.filter(student => {
-            console.log('Calculando filteredStudents. filterStatus:', filterStatus, 'searchTerm:', searchTerm); // Debugging log
+            console.log('Calculando filteredStudents. filterStatus:', filterStatus, 'searchTerm:', searchTerm, 'viewMode:', viewMode); // Debugging log
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             // If search term is empty, show all students for search part
             const matchesSearch = lowerCaseSearchTerm ?
                 lowerCaseSearchTerm.split(/\s+/).filter(word => word.length > 0).every(word =>
-                    `${student.name} ${student.course} ${student.entryDate}`.toLowerCase().includes(word)
+                    `${student.name} ${student.course} ${student.entryDate} ${student.lastInteractionDate}`.toLowerCase().includes(word)
                 ) : true;
 
+            // Check if student matches the specific status filter (e.g., 'diff-critico')
             const matchesFilter = filterStatus ?
               student.status.includes(filterStatus) : true;
 
-            return matchesSearch && matchesFilter;
+            // Check if student matches the selected view mode (active, inactive, archived, all)
+            let matchesViewMode = true;
+            if (viewMode === 'active') {
+                matchesViewMode = student.status.includes('ativo-true') && !student.isArchived;
+            } else if (viewMode === 'inactive') {
+                matchesViewMode = student.status.includes('ativo-false') && !student.isArchived;
+            } else if (viewMode === 'archived') {
+                matchesViewMode = student.isArchived;
+            } else if (viewMode === 'all') {
+                matchesViewMode = true; // Show all students regardless of active/archived status
+            }
+
+            return matchesSearch && matchesFilter && matchesViewMode;
           });
 
           // Determine the background color class for the student count circle
-          const countCircleColorClass = (searchTerm || filterStatus) ? 'bg-yellow-500 text-gray-900' : 'bg-blue-500';
+          const countCircleColorClass = (searchTerm || filterStatus || viewMode !== 'active') ? 'bg-yellow-500 text-gray-900' : 'bg-blue-500';
 
 
           // Get label for status tag
@@ -265,6 +290,12 @@
           const deleteStudent = (id) => {
             if (window.confirm('Tem certeza que deseja excluir este aluno?')) {
               setStudents(students.filter(student => student.id !== id));
+              // Also remove from selection if deleted
+              setSelectedStudentIds(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(id);
+                  return newSet;
+              });
             }
           };
 
@@ -282,10 +313,41 @@
             setEditingStudent(null); // Go back to list view
           };
 
+          // Toggle archive status for a student
+          const handleToggleArchive = (id, newIsArchivedStatus) => {
+              setStudents(prevStudents =>
+                  prevStudents.map(student =>
+                      student.id === id ? { ...student, isArchived: newIsArchivedStatus } : student
+                  )
+              );
+              setSelectedStudentIds(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(id); // Remove from selection if toggled archive status
+                  return newSet;
+              });
+          };
+
 
           // Function to export student data to XLSX
-          const exportToXLSX = (data) => {
-            const worksheetData = data.map(student => {
+          // dataToExport can be either an array of student objects (for filtered/all)
+          // or a Set of student IDs (for selected)
+          const exportToXLSX = (dataToExport, fileName = 'alunos.xlsx') => {
+            let finalData = [];
+
+            // Check if dataToExport is a Set (meaning it's selected IDs)
+            if (dataToExport instanceof Set) {
+                finalData = students.filter(student => dataToExport.has(student.id));
+            } else {
+                // Otherwise, assume it's an array of student objects (e.g., filteredStudents)
+                finalData = dataToExport;
+            }
+
+            if (finalData.length === 0) {
+                alert('Nenhum aluno para exportar.');
+                return;
+            }
+
+            const worksheetData = finalData.map(student => {
               const orientation = getTagLabel(student.status.find(tag => tag.startsWith('orientation-')) || '');
               const device = getTagLabel(student.status.find(tag => tag.startsWith('device-')) || '');
               const difficulty = getTagLabel(student.status.find(tag => tag.startsWith('diff-')) || '');
@@ -299,6 +361,8 @@
                 'Nome do Aluno': student.name,
                 'Curso': student.course,
                 'Data de Ingresso': student.entryDate,
+                'Data Última Interação': student.lastInteractionDate,
+                'Arquivado': student.isArchived ? 'Sim' : 'Não', // Include new field
                 'Nível do Aluno': level,
                 'Orientação': orientation,
                 'Dispositivo': device,
@@ -316,7 +380,8 @@
             const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
             const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
 
-            saveAs(dataBlob, 'alunos.xlsx');
+            saveAs(dataBlob, fileName);
+            setSelectedStudentIds(new Set()); // Clear selection after export
           };
 
           // Function to import student data from XLSX
@@ -355,6 +420,8 @@
                         name: item['Nome do Aluno'] || 'Nome Desconhecido',
                         course: item['Curso'] || 'Curso Desconhecido',
                         entryDate: item['Data de Ingresso'] || '',
+                        lastInteractionDate: item['Data Última Interação'] || '',
+                        isArchived: item['Arquivado'] === 'Sim', // Read new field
                         status: statusArray
                     };
                 });
@@ -390,6 +457,7 @@
               localStorage.removeItem('students');
               alert('Todos os dados de alunos foram zerados.');
               setIsMenuOpen(false);
+              setSelectedStudentIds(new Set()); // Clear selection
             }
           };
 
@@ -419,14 +487,34 @@
           const isDuplicateStudent = (currentStudent) => {
             const count = students.filter(student =>
               student.name.toLowerCase() === currentStudent.name.toLowerCase() &&
-              currentStudent.course.toLowerCase() === student.course.toLowerCase()
+              currentStudent.course.toLowerCase() === student.course.toLowerCase() &&
+              student.id !== currentStudent.id // Exclude itself when checking for duplicates
             ).length;
-            return count > 1;
+            return count > 0; // If count is greater than 0, it means there are other duplicates
+          };
+
+          // Handle student selection
+          const handleStudentSelect = (id, isChecked) => {
+              setSelectedStudentIds(prev => {
+                  const newSet = new Set(prev);
+                  if (isChecked) {
+                      newSet.add(id);
+                  } else {
+                      newSet.delete(id);
+                  }
+                  return newSet;
+              });
+          };
+
+          // Clear all selected students
+          const clearSelection = () => {
+              setSelectedStudentIds(new Set());
+              setIsMenuOpen(false); // Close menu after action
           };
 
 
           // Student card component with inline editing
-          const StudentCard = ({ student, onEdit, onDelete, isDuplicate }) => { // Changed onUpdate to onEdit
+          const StudentCard = ({ student, onEdit, onDelete, isDuplicate, isSelected, onSelect, onToggleArchive }) => {
             const [editingStatus, setEditingStatus] = useState(null);
 
             const extractStatusValue = (prefix) => {
@@ -444,7 +532,7 @@
                     ...student,
                     status: newStatusArray.filter(tag => tag && tag !== '')
                 };
-                onEdit(updatedStudent); // Use onEdit to update the student in the main state
+                onEdit(updatedStudent);
                 setEditingStatus(null);
             };
 
@@ -461,7 +549,7 @@
                         const newStatusArray = student.status.filter(s => !s.startsWith('ativo-'));
                         newStatusArray.push(newStatusValue);
                         const updatedStudent = { ...student, status: newStatusArray };
-                        onEdit(updatedStudent); // Use onEdit here too
+                        onEdit(updatedStudent);
                     };
 
                     return (
@@ -551,18 +639,31 @@
 
 
             return (
-              <div className={`student-card bg-gray-800/70 backdrop-blur-lg rounded-xl p-4 mb-4 relative ${isDuplicate ? 'border-2 border-red-500' : ''}`}>
-                <>
+              // Added flex and items-center to align checkbox
+              <div className={`student-card bg-gray-800/70 backdrop-blur-lg rounded-xl p-4 mb-4 relative flex items-start gap-3 ${student.isArchived ? 'opacity-70 border-purple-500' : ''} ${isDuplicate ? 'border-2 border-red-500' : ''}`}>
+                {student.isArchived && (
+                    <span className="absolute top-0 left-0 bg-purple-600 text-white text-xs px-2 py-1 rounded-br-lg z-10">Arquivado</span>
+                )}
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => onSelect(student.id, e.target.checked)}
+                    className="mt-1 w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <div className="flex-grow"> {/* This div wraps the student info and status tags */}
                   <div className="student-info">
                     <h3 className="student-name text-xl font-bold text-blue-400 mb-1">
                       {student.name}
                     </h3>
                     <p className="student-course text-gray-400 text-sm">
                       {student.course}
-                      {student.entryDate && (
+                      {student.entryDate && ( // Display entry date if available
                           <span className="ml-2 text-gray-500 text-xs">({student.entryDate})</span>
                       )}
                     </p>
+                    {student.lastInteractionDate && ( // Display last interaction date if available
+                        <p className="text-gray-500 text-xs mt-1">Última Interação: {student.lastInteractionDate}</p>
+                    )}
                   </div>
                   <div className="status-group flex flex-wrap gap-1 mt-2">
                     {student.status.filter(tag => tag.startsWith('ativo-')).map((tag) => (
@@ -578,34 +679,54 @@
                         renderStatusTag(tag)
                     ))}
                   </div>
-                  <div className="student-actions absolute top-3 right-3 flex gap-2">
-                    <button
-                      onClick={() => {
-                          console.log("Botão Editar clicado para aluno:", student.id);
-                          onEdit(student); // Pass the entire student object for editing
-                      }}
-                      className="action-btn text-gray-400 hover:text-blue-400 transition-colors"
-                      title="Editar"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => onDelete(student.id)}
-                      className="action-btn text-gray-400 hover:text-red-400 transition-colors"
-                      title="Excluir"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                      </svg>
-                    </button>
-                  </div>
-                </>
+                </div>
+                <div className="student-actions absolute top-3 right-3 flex gap-2">
+                  <button
+                    onClick={() => {
+                        console.log("Botão Editar clicado para aluno:", student.id);
+                        onEdit(student); // Pass the entire student object for editing
+                    }}
+                    className="action-btn text-gray-400 hover:text-blue-400 transition-colors"
+                    title="Editar"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => onToggleArchive(student.id, !student.isArchived)}
+                    className="action-btn text-gray-400 hover:text-purple-400 transition-colors"
+                    title={student.isArchived ? "Desarquivar" : "Arquivar"}
+                  >
+                      {student.isArchived ? (
+                          // Icon for unarchive (e.g., folder open)
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                              <path d="M12 11v6"></path>
+                              <path d="M9 14h6"></path>
+                          </svg>
+                      ) : (
+                          // Icon for archive (e.g., folder with minus)
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                              <line x1="9" y1="14" x2="15" y2="14"></line>
+                          </svg>
+                      )}
+                  </button>
+                  <button
+                    onClick={() => onDelete(student.id)}
+                    className="action-btn text-gray-400 hover:text-red-400 transition-colors"
+                    title="Excluir"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </button>
+                </div>
               </div>
             );
           };
@@ -616,6 +737,8 @@
               name: '',
               course: '',
               entryDate: '',
+              lastInteractionDate: '',
+              isArchived: false, // New field
               level: '',
               orientation: '',
               device: '',
@@ -633,6 +756,8 @@
                   name: studentToEdit.name,
                   course: studentToEdit.course,
                   entryDate: studentToEdit.entryDate,
+                  lastInteractionDate: studentToEdit.lastInteractionDate,
+                  isArchived: studentToEdit.isArchived || false, // Populate new field
                   level: extractStatus('level-'),
                   orientation: extractStatus('orientation-'),
                   device: extractStatus('device-'),
@@ -646,6 +771,8 @@
                   name: '',
                   course: '',
                   entryDate: '',
+                  lastInteractionDate: '',
+                  isArchived: false, // Reset for new student
                   level: '',
                   orientation: '',
                   device: '',
@@ -678,6 +805,8 @@
                 name: formData.name,
                 course: formData.course,
                 entryDate: formData.entryDate,
+                lastInteractionDate: formData.lastInteractionDate,
+                isArchived: formData.isArchived, // Include new field
                 status: newStatus
               };
               onSave(studentData);
@@ -718,6 +847,15 @@
                         onChange={(e) => setFormData({...formData, entryDate: e.target.value})}
                         className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
                         placeholder="Ex: 2025.1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Última Interação (AAAA-MM-DD)</label>
+                      <input
+                        type="date"
+                        value={formData.lastInteractionDate}
+                        onChange={(e) => setFormData({...formData, lastInteractionDate: e.target.value})}
+                        className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
                       />
                     </div>
                     <div>
@@ -807,6 +945,16 @@
                         </select>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 mt-4"> {/* New checkbox for archived status */}
+                        <input
+                            type="checkbox"
+                            id="isArchived"
+                            checked={formData.isArchived}
+                            onChange={(e) => setFormData({...formData, isArchived: e.target.checked})}
+                            className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="isArchived" className="text-sm font-medium text-gray-300">Arquivado</label>
+                    </div>
                     <div className="flex gap-3 pt-2">
                       <button
                         onClick={handleSubmit}
@@ -869,16 +1017,32 @@
                         >
                             Configurações
                         </a>
-                        {/* Menu Item: Exportar para XLSX */}
+                        {/* Menu Item: Exportar para XLSX (Todos) */}
                          <a
                             href="#"
                             className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
                             onClick={() => {
-                                exportToXLSX(students); // Call the export function
+                                // Export the currently filtered students
+                                exportToXLSX(filteredStudents, 'alunos_filtrados.xlsx');
                                 setIsMenuOpen(false); // Close menu on click
                             }}
                         >
-                            Exportar para XLSX
+                            Exportar para XLSX (Filtrados)
+                        </a>
+                        {/* New Menu Item: Exportar Selecionados para XLSX */}
+                        <a
+                            href="#"
+                            className={`block px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-blue-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
+                            onClick={(e) => {
+                                if (selectedStudentIds.size > 0) {
+                                    exportToXLSX(selectedStudentIds, 'alunos_selecionados.xlsx'); // Export only selected
+                                } else {
+                                    alert('Nenhum aluno selecionado para exportar.');
+                                }
+                                setIsMenuOpen(false); // Close menu on click
+                            }}
+                        >
+                            Exportar Selecionados para XLSX
                         </a>
                         {/* Menu Item: Importar de XLSX */}
                          <a
@@ -909,6 +1073,20 @@
                             onClick={updateUniqueIds} // Call the new function
                         >
                             Atualizar IDs Únicos
+                        </a>
+                        {/* New Menu Item: Limpar Seleção */}
+                        <a
+                            href="#"
+                            className={`block px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-yellow-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
+                            onClick={(e) => {
+                                if (selectedStudentIds.size > 0) {
+                                    clearSelection();
+                                } else {
+                                    alert('Nenhum aluno selecionado para limpar.');
+                                }
+                            }}
+                        >
+                            Limpar Seleção ({selectedStudentIds.size})
                         </a>
                         {/* New Menu Item: Zerar Todos */}
                          <a
@@ -982,11 +1160,24 @@
                        <option value="level-novato">Nível: Novato</option> {/* New filter option */}
                     </select>
                   </div>
+                  {/* New dropdown for view mode */}
+                  <div className="min-w-[200px]">
+                    <select
+                      value={viewMode}
+                      onChange={(e) => setViewMode(e.target.value)}
+                      className="filter-select w-full px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700 text-white"
+                    >
+                      <option value="active">Mostrar Ativos</option>
+                      <option value="inactive">Mostrar Inativos</option>
+                      <option value="archived">Mostrar Arquivados</option>
+                      <option value="all">Mostrar Todos</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Student List */}
                 <div className="students-container">
-                  {filteredStudents.length > 0 && (
+                  {filteredStudents.length > 0 ? (
                     filteredStudents.map(student => (
                       <StudentCard
                         key={student.id}
@@ -994,8 +1185,13 @@
                         onEdit={setEditingStudent}
                         onDelete={deleteStudent}
                         isDuplicate={isDuplicateStudent(student)}
+                        isSelected={selectedStudentIds.has(student.id)}
+                        onSelect={handleStudentSelect}
+                        onToggleArchive={handleToggleArchive} // Pass the new toggle archive function
                       />
                     ))
+                  ) : (
+                    <p className="text-center py-8 text-gray-400">Nenhum aluno encontrado com os filtros aplicados.</p>
                   )}
                 </div>
               </main>
