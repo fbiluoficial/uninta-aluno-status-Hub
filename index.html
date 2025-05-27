@@ -142,6 +142,11 @@
                   if (typeof newStudent.isArchived === 'undefined') {
                       newStudent.isArchived = false;
                   }
+                  // Ensure simulado exists and defaults to empty
+                  if (!newStudent.status.some(s => s.startsWith('simulado-'))) {
+                      newStudent.status.push('simulado-'); // Add a default empty value
+                  }
+
 
                   return newStudent;
               });
@@ -155,7 +160,7 @@
                 entryDate: "2025.1",
                 lastInteractionDate: "2025-05-20",
                 isArchived: false, // New field for archiving
-                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano"]
+                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano", "simulado-sim"] // Added simulado-sim
               };
               setStudents([initialStudent]);
             }
@@ -234,7 +239,10 @@
               'forum-discursiva-sabe': 'Fórum/Discursiva (Sabe Finalizar)',
               'forum-discursiva-nao-sabe': 'Fórum/Discursiva (Não Sabe Finalizar)',
               'level-veterano': 'Nível: Veterano',
-              'level-novato': 'Nível: Novato'
+              'level-novato': 'Nível: Novato',
+              'simulado-sim': 'USA SIMULADO: SIM',
+              'simulado-nao': 'USA SIMULADO: NÃO',
+              'simulado-ajuda': 'USA SIMULADO: USA/REQUER AJUDA'
             };
             return tagMap[tag] || tag;
           };
@@ -256,7 +264,10 @@
                     'Fórum/Discursiva (Sabe Finalizar)': 'forum-discursiva-sabe',
                     'Fórum/Discursiva (Não Sabe Finalizar)': 'forum-discursiva-nao-sabe',
                     'Nível: Veterano': 'level-veterano',
-                    'Nível: Novato': 'level-novato'
+                    'Nível: Novato': 'level-novato',
+                    'USA SIMULADO: SIM': 'simulado-sim',
+                    'USA SIMULADO: NÃO': 'simulado-nao',
+                    'USA SIMULADO: USA/REQUER AJUDA': 'simulado-ajuda'
                 };
                 return tagMap[label] || label;
             };
@@ -277,7 +288,10 @@
               'forum-discursiva-sabe': 'bg-purple-600',
               'forum-discursiva-nao-sabe': 'bg-pink-600',
               'level-veterano': 'bg-green-700',
-              'level-novato': 'bg-red-700'
+              'level-novato': 'bg-red-700',
+              'simulado-sim': 'bg-green-500',
+              'simulado-nao': 'bg-red-500',
+              'simulado-ajuda': 'bg-yellow-500 text-gray-900'
             };
             if (tag.startsWith('ativo-')) {
                 return '';
@@ -355,6 +369,7 @@
               const boleto = getTagLabel(student.status.find(tag => tag.startsWith('boleto-')) || '');
               const forumDiscursiva = getTagLabel(student.status.find(tag => tag.startsWith('forum-discursiva-')) || '');
               const level = getTagLabel(student.status.find(tag => tag.startsWith('level-')) || '');
+              const simulado = getTagLabel(student.status.find(tag => tag.startsWith('simulado-')) || ''); // New field
 
               return {
                 'ID': student.id,
@@ -370,6 +385,7 @@
                 'Status Ativo': ativo,
                 'Emitir Boleto': boleto,
                 'Fórum/Discursiva': forumDiscursiva,
+                'USA SIMULADO': simulado // New column
               };
             });
 
@@ -412,7 +428,8 @@
                         getTagValue(item['Status Ativo'] || ''),
                         getTagValue(item['Emitir Boleto'] || ''),
                         getTagValue(item['Fórum/Discursiva'] || ''),
-                        getTagValue(item['Nível do Aluno'] || '')
+                        getTagValue(item['Nível do Aluno'] || ''),
+                        getTagValue(item['USA SIMULADO'] || '') // New field
                     ].filter(tag => tag && tag !== '');
 
                     return {
@@ -605,6 +622,13 @@
                                 { value: 'level-novato', label: 'Nível: Novato' }
                             ];
                             break;
+                        case 'simulado-': // New case for simulado
+                            options = [
+                                { value: 'simulado-sim', label: 'SIM' },
+                                { value: 'simulado-nao', label: 'NÃO' },
+                                { value: 'simulado-ajuda', label: 'USA/REQUER AJUDA' }
+                            ];
+                            break;
                         default:
                             options = [];
                     }
@@ -675,7 +699,10 @@
                     {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag) => (
                         renderStatusTag(tag)
                     ))}
-                    {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico')).map((tag) => (
+                    {student.status.filter(tag => tag.startsWith('simulado-')).map((tag) => ( // Render simulado tag
+                        renderStatusTag(tag)
+                    ))}
+                    {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico') && !tag.startsWith('simulado-')).map((tag) => (
                         renderStatusTag(tag)
                     ))}
                   </div>
@@ -745,7 +772,8 @@
               difficulty: '',
               ativo: 'ativo-true',
               boleto: '',
-              forumDiscursiva: ''
+              forumDiscursiva: '',
+              simulado: '' // New field
             });
 
             useEffect(() => {
@@ -764,7 +792,8 @@
                   difficulty: extractStatus('diff-'),
                   ativo: extractStatus('ativo-'),
                   boleto: extractStatus('boleto-'),
-                  forumDiscursiva: extractStatus('forum-discursiva-')
+                  forumDiscursiva: extractStatus('forum-discursiva-'),
+                  simulado: extractStatus('simulado-') // Populate new field
                 });
               } else { // Adding new student or no student to edit
                 setFormData({
@@ -779,7 +808,8 @@
                   difficulty: '',
                   ativo: 'ativo-true',
                   boleto: '',
-                  forumDiscursiva: ''
+                  forumDiscursiva: '',
+                  simulado: '' // Reset for new student
                 });
               }
             }, [studentToEdit]);
@@ -797,7 +827,8 @@
                   formData.ativo || 'ativo-true',
                   formData.boleto,
                   formData.forumDiscursiva,
-                  formData.level
+                  formData.level,
+                  formData.simulado // Include new field
               ].filter(tag => tag && tag !== '');
 
               const studentData = {
@@ -942,6 +973,19 @@
                           <option value="">Selecione...</option>
                           <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
                           <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
+                        </select>
+                      </div>
+                      <div> {/* New dropdown for USA SIMULADO */}
+                        <label className="block text-sm font-medium mb-1">USA SIMULADO</label>
+                        <select
+                          value={formData.simulado}
+                          onChange={(e) => setFormData({...formData, simulado: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="simulado-sim">SIM</option>
+                          <option value="simulado-nao">NÃO</option>
+                          <option value="simulado-ajuda">USA/REQUER AJUDA</option>
                         </select>
                       </div>
                     </div>
@@ -1158,6 +1202,9 @@
                       <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
                        <option value="level-veterano">Nível: Veterano</option> {/* New filter option */}
                        <option value="level-novato">Nível: Novato</option> {/* New filter option */}
+                       <option value="simulado-sim">USA SIMULADO: SIM</option> {/* New filter option */}
+                       <option value="simulado-nao">USA SIMULADO: NÃO</option> {/* New filter option */}
+                       <option value="simulado-ajuda">USA SIMULADO: USA/REQUER AJUDA</option> {/* New filter option */}
                     </select>
                   </div>
                   {/* New dropdown for view mode */}
