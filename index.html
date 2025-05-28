@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>uninta-aluno-status-Hub/</title>
+    <title>Plataforma AVA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -146,6 +146,10 @@
                   if (!newStudent.status.some(s => s.startsWith('simulado-'))) {
                       newStudent.status.push('simulado-'); // Add a default empty value
                   }
+                  // Ensure motivo-inativo exists and defaults to empty
+                  if (!newStudent.status.some(s => s.startsWith('motivo-inativo-'))) {
+                      newStudent.status.push('motivo-inativo-'); // Add a default empty value
+                  }
 
 
                   return newStudent;
@@ -160,7 +164,7 @@
                 entryDate: "2025.1",
                 lastInteractionDate: "2025-05-20",
                 isArchived: false, // New field for archiving
-                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano", "simulado-sim"] // Added simulado-sim
+                status: ["orientation-video", "device-site", "diff-sabe", "ativo-true", "boleto-sabe", "forum-discursiva-sabe", "level-veterano", "simulado-sim", "motivo-inativo-"] // Added simulado-sim and motivo-inativo-
               };
               setStudents([initialStudent]);
             }
@@ -242,7 +246,12 @@
               'level-novato': 'Nível: Novato',
               'simulado-sim': 'USA SIMULADO: SIM',
               'simulado-nao': 'USA SIMULADO: NÃO',
-              'simulado-ajuda': 'USA SIMULADO: USA/REQUER AJUDA'
+              'simulado-ajuda': 'USA SIMULADO: USA/REQUER AJUDA',
+              'motivo-inativo-trancou': 'Motivo Inativo: Trancou',
+              'motivo-inativo-desistente': 'Motivo Inativo: Desistente',
+              'motivo-inativo-pendente': 'Motivo Inativo: Pendente-$',
+              'motivo-inativo-finalizou': 'Motivo Inativo: Finalizou',
+              'motivo-inativo-diplomado': 'Motivo Inativo: Diplomado(a)'
             };
             return tagMap[tag] || tag;
           };
@@ -267,7 +276,12 @@
                     'Nível: Novato': 'level-novato',
                     'USA SIMULADO: SIM': 'simulado-sim',
                     'USA SIMULADO: NÃO': 'simulado-nao',
-                    'USA SIMULADO: USA/REQUER AJUDA': 'simulado-ajuda'
+                    'USA SIMULADO: USA/REQUER AJUDA': 'simulado-ajuda',
+                    'Motivo Inativo: Trancou': 'motivo-inativo-trancou',
+                    'Motivo Inativo: Desistente': 'motivo-inativo-desistente',
+                    'Motivo Inativo: Pendente-$': 'motivo-inativo-pendente',
+                    'Motivo Inativo: Finalizou': 'motivo-inativo-finalizou',
+                    'Motivo Inativo: Diplomado(a)': 'motivo-inativo-diplomado'
                 };
                 return tagMap[label] || label;
             };
@@ -291,7 +305,12 @@
               'level-novato': 'bg-red-700',
               'simulado-sim': 'bg-green-500',
               'simulado-nao': 'bg-red-500',
-              'simulado-ajuda': 'bg-yellow-500 text-gray-900'
+              'simulado-ajuda': 'bg-yellow-500 text-gray-900',
+              'motivo-inativo-trancou': 'bg-orange-500',
+              'motivo-inativo-desistente': 'bg-red-800',
+              'motivo-inativo-pendente': 'bg-yellow-700 text-gray-900',
+              'motivo-inativo-finalizou': 'bg-blue-700',
+              'motivo-inativo-diplomado': 'bg-green-800'
             };
             if (tag.startsWith('ativo-')) {
                 return '';
@@ -369,7 +388,8 @@
               const boleto = getTagLabel(student.status.find(tag => tag.startsWith('boleto-')) || '');
               const forumDiscursiva = getTagLabel(student.status.find(tag => tag.startsWith('forum-discursiva-')) || '');
               const level = getTagLabel(student.status.find(tag => tag.startsWith('level-')) || '');
-              const simulado = getTagLabel(student.status.find(tag => tag.startsWith('simulado-')) || ''); // New field
+              const simulado = getTagLabel(student.status.find(tag => tag.startsWith('simulado-')) || '');
+              const motivoInativo = getTagLabel(student.status.find(tag => tag.startsWith('motivo-inativo-')) || ''); // New field
 
               return {
                 'ID': student.id,
@@ -385,7 +405,8 @@
                 'Status Ativo': ativo,
                 'Emitir Boleto': boleto,
                 'Fórum/Discursiva': forumDiscursiva,
-                'USA SIMULADO': simulado // New column
+                'USA SIMULADO': simulado,
+                'Motivo Inativo': motivoInativo // New column
               };
             });
 
@@ -429,7 +450,8 @@
                         getTagValue(item['Emitir Boleto'] || ''),
                         getTagValue(item['Fórum/Discursiva'] || ''),
                         getTagValue(item['Nível do Aluno'] || ''),
-                        getTagValue(item['USA SIMULADO'] || '') // New field
+                        getTagValue(item['USA SIMULADO'] || ''),
+                        getTagValue(item['Motivo Inativo'] || '') // New field
                     ].filter(tag => tag && tag !== '');
 
                     return {
@@ -622,11 +644,20 @@
                                 { value: 'level-novato', label: 'Nível: Novato' }
                             ];
                             break;
-                        case 'simulado-': // New case for simulado
+                        case 'simulado-':
                             options = [
                                 { value: 'simulado-sim', label: 'SIM' },
                                 { value: 'simulado-nao', label: 'NÃO' },
                                 { value: 'simulado-ajuda', label: 'USA/REQUER AJUDA' }
+                            ];
+                            break;
+                        case 'motivo-inativo-': // New case for motivo-inativo
+                            options = [
+                                { value: 'motivo-inativo-trancou', label: 'Trancou' },
+                                { value: 'motivo-inativo-desistente', label: 'Desistente' },
+                                { value: 'motivo-inativo-pendente', label: 'Pendente-$' },
+                                { value: 'motivo-inativo-finalizou', label: 'Finalizou' },
+                                { value: 'motivo-inativo-diplomado', label: 'Diplomado(a)' }
                             ];
                             break;
                         default:
@@ -699,10 +730,24 @@
                     {student.status.filter(tag => tag.endsWith('-nao-sabe') || tag.startsWith('diff-critico')).map((tag) => (
                         renderStatusTag(tag)
                     ))}
-                    {student.status.filter(tag => tag.startsWith('simulado-')).map((tag) => ( // Render simulado tag
+                    {student.status.filter(tag => tag.startsWith('simulado-')).map((tag) => (
                         renderStatusTag(tag)
                     ))}
-                    {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico') && !tag.startsWith('simulado-')).map((tag) => (
+                    {
+                        // Special handling for motivo-inativo- to ensure the dropdown is always rendered
+                        (() => {
+                            const motivoTag = student.status.find(tag => tag.startsWith('motivo-inativo-'));
+                            const isActive = student.status.includes('ativo-true');
+
+                            // Render the tag if found, or if the student is inactive (to allow selection)
+                            if (motivoTag || !isActive) {
+                                // If motivoTag is empty, pass 'motivo-inativo-' to render an empty dropdown
+                                return renderStatusTag(motivoTag || 'motivo-inativo-');
+                            }
+                            return null;
+                        })()
+                    }
+                    {student.status.filter(tag => !tag.startsWith('ativo-') && !tag.startsWith('level-') && !tag.endsWith('-nao-sabe') && !tag.startsWith('diff-critico') && !tag.startsWith('simulado-') && !tag.startsWith('motivo-inativo-')).map((tag) => (
                         renderStatusTag(tag)
                     ))}
                   </div>
@@ -773,7 +818,8 @@
               ativo: 'ativo-true',
               boleto: '',
               forumDiscursiva: '',
-              simulado: '' // New field
+              simulado: '', // New field
+              motivoInativo: '' // New field
             });
 
             useEffect(() => {
@@ -793,7 +839,8 @@
                   ativo: extractStatus('ativo-'),
                   boleto: extractStatus('boleto-'),
                   forumDiscursiva: extractStatus('forum-discursiva-'),
-                  simulado: extractStatus('simulado-') // Populate new field
+                  simulado: extractStatus('simulado-'),
+                  motivoInativo: extractStatus('motivo-inativo-') // Populate new field
                 });
               } else { // Adding new student or no student to edit
                 setFormData({
@@ -809,7 +856,8 @@
                   ativo: 'ativo-true',
                   boleto: '',
                   forumDiscursiva: '',
-                  simulado: '' // Reset for new student
+                  simulado: '',
+                  motivoInativo: '' // Reset for new student
                 });
               }
             }, [studentToEdit]);
@@ -828,7 +876,8 @@
                   formData.boleto,
                   formData.forumDiscursiva,
                   formData.level,
-                  formData.simulado // Include new field
+                  formData.simulado,
+                  formData.motivoInativo // Include new field
               ].filter(tag => tag && tag !== '');
 
               const studentData = {
@@ -986,6 +1035,21 @@
                           <option value="simulado-sim">SIM</option>
                           <option value="simulado-nao">NÃO</option>
                           <option value="simulado-ajuda">USA/REQUER AJUDA</option>
+                        </select>
+                      </div>
+                      <div> {/* New dropdown for Motivo Inativo */}
+                        <label className="block text-sm font-medium mb-1">Motivo Inativo</label>
+                        <select
+                          value={formData.motivoInativo}
+                          onChange={(e) => setFormData({...formData, motivoInativo: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="motivo-inativo-trancou">Trancou</option>
+                          <option value="motivo-inativo-desistente">Desistente</option>
+                          <option value="motivo-inativo-pendente">Pendente-$</option>
+                          <option value="motivo-inativo-finalizou">Finalizou</option>
+                          <option value="motivo-inativo-diplomado">Diplomado(a)</option>
                         </select>
                       </div>
                     </div>
@@ -1200,11 +1264,16 @@
                       <option value="boleto-nao-sabe">Boleto (Não Sabe)</option>
                       <option value="forum-discursiva-sabe">Fórum/Discursiva (Sabe Finalizar)</option>
                       <option value="forum-discursiva-nao-sabe">Fórum/Discursiva (Não Sabe Finalizar)</option>
-                       <option value="level-veterano">Nível: Veterano</option> {/* New filter option */}
-                       <option value="level-novato">Nível: Novato</option> {/* New filter option */}
-                       <option value="simulado-sim">USA SIMULADO: SIM</option> {/* New filter option */}
-                       <option value="simulado-nao">USA SIMULADO: NÃO</option> {/* New filter option */}
-                       <option value="simulado-ajuda">USA SIMULADO: USA/REQUER AJUDA</option> {/* New filter option */}
+                       <option value="level-veterano">Nível: Veterano</option>
+                       <option value="level-novato">Nível: Novato</option>
+                       <option value="simulado-sim">USA SIMULADO: SIM</option>
+                       <option value="simulado-nao">USA SIMULADO: NÃO</option>
+                       <option value="simulado-ajuda">USA SIMULADO: USA/REQUER AJUDA</option>
+                       <option value="motivo-inativo-trancou">Motivo Inativo: Trancou</option>
+                       <option value="motivo-inativo-desistente">Motivo Inativo: Desistente</option>
+                       <option value="motivo-inativo-pendente">Motivo Inativo: Pendente-$</option>
+                       <option value="motivo-inativo-finalizou">Motivo Inativo: Finalizou</option>
+                       <option value="motivo-inativo-diplomado">Motivo Inativo: Diplomado(a)</option>
                     </select>
                   </div>
                   {/* New dropdown for view mode */}
