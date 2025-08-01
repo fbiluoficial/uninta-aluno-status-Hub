@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plataforma AVA</title>
+    <title>Uninta-aluno-Status-Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -286,37 +286,30 @@
                 return tagMap[label] || label;
             };
 
+            // New function to get color for status tags
+            const getTagColor = (tag) => {
+                const colorMap = {
+                    'orientation-': 'bg-green-600',
+                    'device-': 'bg-indigo-600',
+                    'diff-critico': 'bg-red-600',
+                    'diff-sabe': 'bg-green-600',
+                    'diff-dicas': 'bg-yellow-600',
+                    'boleto-': 'bg-blue-600',
+                    'forum-discursiva-': 'bg-purple-600',
+                    'level-veterano': 'bg-orange-600',
+                    'level-novato': 'bg-teal-600',
+                    'simulado-sim': 'bg-lime-600',
+                    'simulado-nao': 'bg-pink-600',
+                    'simulado-ajuda': 'bg-yellow-600',
+                    'motivo-inativo-': 'bg-gray-600',
+                };
 
-          // Get tag color classes or special rendering for 'ativo' and 'level'
-          const getTagColor = (tag) => {
-            const colorMap = {
-              'orientation-video': 'bg-blue-500',
-              'orientation-presencial': 'bg-indigo-500',
-              'device-app': 'bg-teal-500',
-              'device-site': 'bg-cyan-500',
-              'diff-critico': 'bg-red-700 text-white',
-              'diff-sabe': 'bg-green-500',
-              'diff-dicas': 'bg-yellow-500 text-gray-900',
-              'boleto-sabe': 'bg-green-600',
-              'boleto-nao-sabe': 'bg-red-600',
-              'forum-discursiva-sabe': 'bg-purple-600',
-              'forum-discursiva-nao-sabe': 'bg-pink-600',
-              'level-veterano': 'bg-green-700',
-              'level-novato': 'bg-red-700',
-              'simulado-sim': 'bg-green-500',
-              'simulado-nao': 'bg-red-500',
-              'simulado-ajuda': 'bg-yellow-500 text-gray-900',
-              'motivo-inativo-trancou': 'bg-orange-500',
-              'motivo-inativo-desistente': 'bg-red-800',
-              'motivo-inativo-pendente': 'bg-yellow-700 text-gray-900',
-              'motivo-inativo-finalizou': 'bg-blue-700',
-              'motivo-inativo-diplomado': 'bg-green-800'
+                const prefix = tag.split('-')[0] + '-';
+                if (colorMap[tag]) {
+                    return colorMap[tag]; // Specific tag color
+                }
+                return colorMap[prefix] || 'bg-gray-600'; // Default to prefix color or grey
             };
-            if (tag.startsWith('ativo-')) {
-                return '';
-            }
-            return colorMap[tag] || 'bg-gray-500';
-          };
 
 
           // Delete a student
@@ -1096,6 +1089,15 @@
                         {filteredStudents.length}
                     </div>
                     <div className="logo text-2xl font-bold text-blue-400">Plataforma AVA</div>
+                    {/* New tag for Relatório-Adm-Uninta */}
+                    <a
+                        href="https://uniesbra4jf.github.io/relatorio-Uninta/"
+                        target="_blank"
+                        className="ml-4 px-3 py-1 rounded-full text-sm font-bold bg-red-700 text-white hover:bg-red-600 transition-colors md:block"
+                        title="Abrir Relatório-Adm-Uninta em uma nova aba"
+                    >
+                        Relatório-Adm-Uninta
+                    </a>
                 </div>
                 {/* Settings menu with icon and dropdown */}
                 <div className="settings-menu-container relative" ref={menuRef}> {/* Add ref and class */}
@@ -1172,18 +1174,6 @@
                             }}
                         >
                             ✨Gestão de Materiais Didáticos
-                        </a>
-
-                          {/* New Menu Item: Relatório-Adm-Uninta */}
-                         <a
-                            href="https://uniesbra4jf.github.io/relatorio-Uninta/" // Set the href
-                            target="_blank" // Open in a new tab
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                                setIsMenuOpen(false); // Close menu on click
-                            }}
-                        >
-                            ✨Relatório-Adm-Uninta
                         </a>
 
                            {/* New Menu Item: Manual-Adm-UNINTA*/}
