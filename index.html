@@ -1225,6 +1225,12 @@
                             <hr className="border-gray-700 my-1"/>
                             <button
                                 className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => exportData(students, 'xlsx', 'alunos_todos.xlsx')}
+                            >
+                                XLSX (Todos)
+                            </button>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
                                 onClick={() => exportData(filteredStudents, 'xlsx', 'alunos_filtrados.xlsx')}
                             >
                                 XLSX (Filtrados)
@@ -1234,6 +1240,13 @@
                                 onClick={() => selectedStudentIds.size > 0 && exportData(selectedStudentIds, 'xlsx', 'alunos_selecionados.xlsx')}
                             >
                                 XLSX (Selecionados)
+                            </button>
+                            <hr className="border-gray-700 my-1"/>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => exportData(students, 'json', 'alunos_todos.json')}
+                            >
+                                JSON (Todos)
                             </button>
                             <button
                                 className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
