@@ -106,7 +106,8 @@
           const [filterStatus, setFilterStatus] = useState('');
           // `editingStudent` will be null for list view, {} for adding, or a student object for editing
           const [editingStudent, setEditingStudent] = useState(null);
-          const [isMenuOpen, setIsMenuOpen] = useState(false); // State for menu dropdown visibility
+          // New state for menu management: 'main', 'export', 'import' or null
+          const [activeMenu, setActiveMenu] = useState(null);
           // New state for selected student IDs
           const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
           // New state for view mode: 'active', 'inactive', 'archived', 'all'
@@ -114,8 +115,9 @@
 
           // Ref for the menu container to detect clicks outside
           const menuRef = useRef(null);
-          // Ref for the hidden file input for importing
-          const fileInputRef = useRef(null);
+          // Refs for the hidden file inputs for importing
+          const xlsxInputRef = useRef(null);
+          const jsonInputRef = useRef(null);
 
 
           // Load students from localStorage on initial render
@@ -179,48 +181,51 @@
             useEffect(() => {
                 const handleClickOutside = (event) => {
                     if (menuRef.current && !menuRef.current.contains(event.target)) {
-                        setIsMenuOpen(false);
+                        setActiveMenu(null);
                     }
                 };
 
-                if (isMenuOpen) {
+                if (activeMenu) {
                     document.addEventListener('mousedown', handleClickOutside);
                 }
 
                 return () => {
                     document.removeEventListener('mousedown', handleClickOutside);
                 };
-            }, [isMenuOpen]);
+            }, [activeMenu]);
 
 
           // Filter students based on search, status filter, and view mode
-          const filteredStudents = students.filter(student => {
-            console.log('Calculando filteredStudents. filterStatus:', filterStatus, 'searchTerm:', searchTerm, 'viewMode:', viewMode); // Debugging log
-            const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
-            // If search term is empty, show all students for search part
-            const matchesSearch = lowerCaseSearchTerm ?
-                lowerCaseSearchTerm.split(/\s+/).filter(word => word.length > 0).every(word =>
-                    `${student.name} ${student.course} ${student.entryDate} ${student.lastInteractionDate}`.toLowerCase().includes(word)
-                ) : true;
+          const filteredStudents = students
+            .filter(student => {
+              console.log('Calculando filteredStudents. filterStatus:', filterStatus, 'searchTerm:', searchTerm, 'viewMode:', viewMode); // Debugging log
+              const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+              // If search term is empty, show all students for search part
+              const matchesSearch = lowerCaseSearchTerm ?
+                  lowerCaseSearchTerm.split(/\s+/).filter(word => word.length > 0).every(word =>
+                      `${student.name} ${student.course} ${student.entryDate} ${student.lastInteractionDate}`.toLowerCase().includes(word)
+                  ) : true;
 
-            // Check if student matches the specific status filter (e.g., 'diff-critico')
-            const matchesFilter = filterStatus ?
-              student.status.includes(filterStatus) : true;
+              // Check if student matches the specific status filter (e.g., 'diff-critico')
+              const matchesFilter = filterStatus ?
+                student.status.includes(filterStatus) : true;
 
-            // Check if student matches the selected view mode (active, inactive, archived, all)
-            let matchesViewMode = true;
-            if (viewMode === 'active') {
-                matchesViewMode = student.status.includes('ativo-true') && !student.isArchived;
-            } else if (viewMode === 'inactive') {
-                matchesViewMode = student.status.includes('ativo-false') && !student.isArchived;
-            } else if (viewMode === 'archived') {
-                matchesViewMode = student.isArchived;
-            } else if (viewMode === 'all') {
-                matchesViewMode = true; // Show all students regardless of active/archived status
-            }
+              // Check if student matches the selected view mode (active, inactive, archived, all)
+              let matchesViewMode = true;
+              if (viewMode === 'active') {
+                  matchesViewMode = student.status.includes('ativo-true') && !student.isArchived;
+              } else if (viewMode === 'inactive') {
+                  matchesViewMode = student.status.includes('ativo-false') && !student.isArchived;
+              } else if (viewMode === 'archived') {
+                  matchesViewMode = student.isArchived;
+              } else if (viewMode === 'all') {
+                  matchesViewMode = true; // Show all students regardless of active/archived status
+              }
 
-            return matchesSearch && matchesFilter && matchesViewMode;
-          });
+              return matchesSearch && matchesFilter && matchesViewMode;
+            })
+            .reverse(); // Sort students by most recently added (reversed order)
+
 
           // Determine the background color class for the student count circle
           const countCircleColorClass = (searchTerm || filterStatus || viewMode !== 'active') ? 'bg-yellow-500 text-gray-900' : 'bg-blue-500';
@@ -354,64 +359,65 @@
           };
 
 
-          // Function to export student data to XLSX
+          // Function to export student data to XLSX or JSON
           // dataToExport can be either an array of student objects (for filtered/all)
           // or a Set of student IDs (for selected)
-          const exportToXLSX = (dataToExport, fileName = 'alunos.xlsx') => {
-            let finalData = [];
+          const exportData = (dataToExport, fileType, fileName) => {
+              let finalData = [];
+              if (dataToExport instanceof Set) {
+                  finalData = students.filter(student => dataToExport.has(student.id));
+              } else {
+                  finalData = dataToExport;
+              }
 
-            // Check if dataToExport is a Set (meaning it's selected IDs)
-            if (dataToExport instanceof Set) {
-                finalData = students.filter(student => dataToExport.has(student.id));
-            } else {
-                // Otherwise, assume it's an array of student objects (e.g., filteredStudents)
-                finalData = dataToExport;
-            }
+              if (finalData.length === 0) {
+                  alert('Nenhum aluno para exportar.');
+                  return;
+              }
 
-            if (finalData.length === 0) {
-                alert('Nenhum aluno para exportar.');
-                return;
-            }
+              if (fileType === 'xlsx') {
+                  const worksheetData = finalData.map(student => {
+                      const orientation = getTagLabel(student.status.find(tag => tag.startsWith('orientation-')) || '');
+                      const device = getTagLabel(student.status.find(tag => tag.startsWith('device-')) || '');
+                      const difficulty = getTagLabel(student.status.find(tag => tag.startsWith('diff-')) || '');
+                      const ativo = getTagLabel(student.status.find(tag => tag.startsWith('ativo-')) || '');
+                      const boleto = getTagLabel(student.status.find(tag => tag.startsWith('boleto-')) || '');
+                      const forumDiscursiva = getTagLabel(student.status.find(tag => tag.startsWith('forum-discursiva-')) || '');
+                      const level = getTagLabel(student.status.find(tag => tag.startsWith('level-')) || '');
+                      const simulado = getTagLabel(student.status.find(tag => tag.startsWith('simulado-')) || '');
+                      const motivoInativo = getTagLabel(student.status.find(tag => tag.startsWith('motivo-inativo-')) || '');
 
-            const worksheetData = finalData.map(student => {
-              const orientation = getTagLabel(student.status.find(tag => tag.startsWith('orientation-')) || '');
-              const device = getTagLabel(student.status.find(tag => tag.startsWith('device-')) || '');
-              const difficulty = getTagLabel(student.status.find(tag => tag.startsWith('diff-')) || '');
-              const ativo = getTagLabel(student.status.find(tag => tag.startsWith('ativo-')) || '');
-              const boleto = getTagLabel(student.status.find(tag => tag.startsWith('boleto-')) || '');
-              const forumDiscursiva = getTagLabel(student.status.find(tag => tag.startsWith('forum-discursiva-')) || '');
-              const level = getTagLabel(student.status.find(tag => tag.startsWith('level-')) || '');
-              const simulado = getTagLabel(student.status.find(tag => tag.startsWith('simulado-')) || '');
-              const motivoInativo = getTagLabel(student.status.find(tag => tag.startsWith('motivo-inativo-')) || ''); // New field
-
-              return {
-                'ID': student.id,
-                'Nome do Aluno': student.name,
-                'Curso': student.course,
-                'Data de Ingresso': student.entryDate,
-                'Data Última Interação': student.lastInteractionDate,
-                'Arquivado': student.isArchived ? 'Sim' : 'Não', // Include new field
-                'Nível do Aluno': level,
-                'Orientação': orientation,
-                'Dispositivo': device,
-                'Dificuldade AVA': difficulty,
-                'Status Ativo': ativo,
-                'Emitir Boleto': boleto,
-                'Fórum/Discursiva': forumDiscursiva,
-                'USA SIMULADO': simulado,
-                'Motivo Inativo': motivoInativo // New column
-              };
-            });
-
-            const ws = XLSX.utils.json_to_sheet(worksheetData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Alunos");
-
-            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-
-            saveAs(dataBlob, fileName);
-            setSelectedStudentIds(new Set()); // Clear selection after export
+                      return {
+                          'ID': student.id,
+                          'Nome do Aluno': student.name,
+                          'Curso': student.course,
+                          'Data de Ingresso': student.entryDate,
+                          'Data Última Interação': student.lastInteractionDate,
+                          'Arquivado': student.isArchived ? 'Sim' : 'Não',
+                          'Nível do Aluno': level,
+                          'Orientação': orientation,
+                          'Dispositivo': device,
+                          'Dificuldade AVA': difficulty,
+                          'Status Ativo': ativo,
+                          'Emitir Boleto': boleto,
+                          'Fórum/Discursiva': forumDiscursiva,
+                          'USA SIMULADO': simulado,
+                          'Motivo Inativo': motivoInativo
+                      };
+                  });
+                  const ws = XLSX.utils.json_to_sheet(worksheetData);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Alunos");
+                  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                  const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+                  saveAs(dataBlob, fileName);
+              } else if (fileType === 'json') {
+                  const jsonString = JSON.stringify(finalData, null, 2); // Use 2 spaces for indentation
+                  const dataBlob = new Blob([jsonString], { type: 'application/json' });
+                  saveAs(dataBlob, fileName);
+              }
+              setActiveMenu(null); // Close menu after action
+              setSelectedStudentIds(new Set()); // Clear selection
           };
 
           // Function to import student data from XLSX
@@ -468,13 +474,45 @@
                   event.target.value = null;
               }
             };
-
             reader.readAsArrayBuffer(file);
           };
 
-          // Function to trigger the hidden file input click
-          const triggerImport = () => {
-            fileInputRef.current.click();
+          // Function to import student data from JSON
+          const importFromJSON = (event) => {
+              const file = event.target.files[0];
+              if (!file) {
+                  return;
+              }
+
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                  try {
+                      const importedData = JSON.parse(e.target.result);
+                      if (Array.isArray(importedData)) {
+                          setStudents(importedData);
+                          alert('Dados JSON importados com sucesso!');
+                      } else {
+                          alert('Erro: O arquivo JSON não contém um array de alunos válido.');
+                      }
+                  } catch (error) {
+                      console.error("Error importing JSON file:", error);
+                      alert('Erro ao importar arquivo JSON. Certifique-se de que é um arquivo JSON válido.');
+                  } finally {
+                      event.target.value = null; // Clear the input
+                  }
+              };
+              reader.readAsText(file);
+          };
+
+          // Functions to trigger the hidden file input clicks
+          const triggerXLSXImport = () => {
+            xlsxInputRef.current.click();
+            setActiveMenu(null);
+          };
+
+          const triggerJSONImport = () => {
+            jsonInputRef.current.click();
+            setActiveMenu(null);
           };
 
           // Function to clear search term
@@ -488,7 +526,7 @@
               setStudents([]);
               localStorage.removeItem('students');
               alert('Todos os dados de alunos foram zerados.');
-              setIsMenuOpen(false);
+              setActiveMenu(null);
               setSelectedStudentIds(new Set()); // Clear selection
             }
           };
@@ -541,7 +579,7 @@
           // Clear all selected students
           const clearSelection = () => {
               setSelectedStudentIds(new Set());
-              setIsMenuOpen(false); // Close menu after action
+              setActiveMenu(null); // Close menu after action
           };
 
 
@@ -1112,7 +1150,7 @@
                 {/* Settings menu with icon and dropdown */}
                 <div className="settings-menu-container relative" ref={menuRef}> {/* Add ref and class */}
                     <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        onClick={() => setActiveMenu(activeMenu === 'main' ? null : 'main')}
                         className="settings-button text-gray-300 hover:text-blue-400 transition-colors focus:outline-none"
                         aria-label="Menu de Configurações"
                     >
@@ -1123,81 +1161,37 @@
                         </svg>
                     </button>
                     {/* Dropdown Menu */}
-                    {isMenuOpen && (
+                    {activeMenu === 'main' && (
                       <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-20">
-                        {/* Menu Item: Configurações */}
-                        <a
-                            href="#"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                                alert('Funcionalidade de Configurações (em desenvolvimento)'); // Placeholder action
-                                setIsMenuOpen(false); // Close menu on click
-                            }}
+                         <button
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                            onClick={() => setActiveMenu('export')}
                         >
-                            Configurações
-                        </a>
-                        {/* Menu Item: Exportar para XLSX (Todos) */}
-                         <a
-                            href="#"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                                // Export the currently filtered students
-                                exportToXLSX(filteredStudents, 'alunos_filtrados.xlsx');
-                                setIsMenuOpen(false); // Close menu on click
-                            }}
+                            Exportar dados &rsaquo;
+                        </button>
+                         <button
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                            onClick={() => setActiveMenu('import')}
                         >
-                            Exportar para XLSX (Filtrados)
-                        </a>
-                        {/* New Menu Item: Exportar Selecionados para XLSX */}
-                        <a
-                            href="#"
-                            className={`block px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-blue-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
-                            onClick={(e) => {
-                                if (selectedStudentIds.size > 0) {
-                                    exportToXLSX(selectedStudentIds, 'alunos_selecionados.xlsx'); // Export only selected
-                                } else {
-                                    alert('Nenhum aluno selecionado para exportar.');
-                                }
-                                setIsMenuOpen(false); // Close menu on click
-                            }}
-                        >
-                            Exportar Selecionados para XLSX
-                        </a>
-                        {/* Menu Item: Importar de XLSX */}
-                         <a
-                            href="#"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                                triggerImport(); // Trigger the file input click
-                                setIsMenuOpen(false); // Close menu on click
-                            }}
-                        >
-                            Importar de XLSX
-                        </a>
-                        {/* New Menu Item: Gestão de Materiais Didáticos */}
+                            Importar dados &rsaquo;
+                        </button>
                          <a
                             href="https://fbiluoficial.github.io/uninta-disciplina/" // Set the href
                             target="_blank" // Open in a new tab
                             className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
                             onClick={() => {
-                                setIsMenuOpen(false); // Close menu on click
+                                setActiveMenu(null);
                             }}
                         >
                             ✨Gestão de Materiais Didáticos
                         </a>
-
-                          
-                        {/* New Menu Item: Atualizar IDs Únicos */}
-                          
-                        {/* New Menu Item: Atualizar IDs Únicos */}
                         <a
                             href="#"
                             className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-                            onClick={updateUniqueIds} // Call the new function
+                            onClick={updateUniqueIds}
                         >
                             Atualizar IDs Únicos
                         </a>
-                        {/* New Menu Item: Limpar Seleção */}
                         <a
                             href="#"
                             className={`block px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-yellow-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
@@ -1211,25 +1205,89 @@
                         >
                             Limpar Seleção ({selectedStudentIds.size})
                         </a>
-                        {/* New Menu Item: Zerar Todos */}
                          <a
                             href="#"
                             className="block px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
-                            onClick={clearAllStudents} // Call the clearAllStudents function
+                            onClick={clearAllStudents}
                         >
                             Zerar Todos
                         </a>
                       </div>
                     )}
+                    {activeMenu === 'export' && (
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-20">
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => setActiveMenu('main')}
+                            >
+                                &lsaquo; Voltar
+                            </button>
+                            <hr className="border-gray-700 my-1"/>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => exportData(filteredStudents, 'xlsx', 'alunos_filtrados.xlsx')}
+                            >
+                                XLSX (Filtrados)
+                            </button>
+                            <button
+                                className={`block w-full text-left px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-blue-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
+                                onClick={() => selectedStudentIds.size > 0 && exportData(selectedStudentIds, 'xlsx', 'alunos_selecionados.xlsx')}
+                            >
+                                XLSX (Selecionados)
+                            </button>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => exportData(filteredStudents, 'json', 'alunos_filtrados.json')}
+                            >
+                                JSON (Filtrados)
+                            </button>
+                            <button
+                                className={`block w-full text-left px-4 py-2 text-sm ${selectedStudentIds.size > 0 ? 'text-blue-300 hover:bg-gray-700' : 'text-gray-500 cursor-not-allowed'}`}
+                                onClick={() => selectedStudentIds.size > 0 && exportData(selectedStudentIds, 'json', 'alunos_selecionados.json')}
+                            >
+                                JSON (Selecionados)
+                            </button>
+                        </div>
+                    )}
+                    {activeMenu === 'import' && (
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-20">
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={() => setActiveMenu('main')}
+                            >
+                                &lsaquo; Voltar
+                            </button>
+                            <hr className="border-gray-700 my-1"/>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={triggerXLSXImport}
+                            >
+                                XLSX
+                            </button>
+                            <button
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                onClick={triggerJSONImport}
+                            >
+                                JSON
+                            </button>
+                        </div>
+                    )}
                 </div>
               </nav>
 
-              {/* Hidden file input for import */}
+              {/* Hidden file inputs for import */}
               <input
                 type="file"
-                ref={fileInputRef}
+                ref={xlsxInputRef}
                 onChange={importFromXLSX}
                 accept=".xlsx"
+                className="hidden-file-input"
+              />
+              <input
+                type="file"
+                ref={jsonInputRef}
+                onChange={importFromJSON}
+                accept=".json"
                 className="hidden-file-input"
               />
 
